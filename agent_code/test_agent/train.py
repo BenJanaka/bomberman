@@ -1,12 +1,13 @@
 import pickle
 import random
+import torch
 from collections import namedtuple, deque
 from typing import List
 
 import events as e
 from .callbacks import state_to_features
 
-from model.py import LinearQNet
+from model import LinearQNet
 
 # This is only an example!
 Transition = namedtuple('Transition',
@@ -54,8 +55,8 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     :param events: The events that occurred when going from  `old_game_state` to `new_game_state`
     """
     # if old_game_state is not None:
-        # self.oppenents = [old_game_state['others'] ]
-        
+    # self.oppenents = [old_game_state['others'] ]
+
     self.logger.debug(f'Encountered game event(s) {", ".join(map(repr, events))} in step {new_game_state["step"]}')
 
     # Idea: Add your own events to hand out rewards
@@ -63,10 +64,12 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
         events.append(PLACEHOLDER_EVENT)
 
     # state_to_features is defined in callbacks.py
-    self.transitions.append(Transition(state_to_features(old_game_state), self_action, state_to_features(new_game_state), reward_from_events(self, events)))
-    
-    state, action, next_state, reward = *self.transitions[-1]
-    train_step([step], [action], [next_state], [reward])
+    self.transitions.append(
+        Transition(state_to_features(old_game_state), self_action, state_to_features(new_game_state),
+                   reward_from_events(self, events)))
+
+    state, action, next_state, reward = self.transitions[-1].unpack()
+    train_step(self, [state], [action], [next_state], [reward])
 
 
 def end_of_round(self, last_game_state: dict, last_action: str, events: List[str]):
@@ -82,27 +85,29 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     :param self: The same object that is passed to all of your callbacks.
     """
     self.logger.debug(f'Encountered event(s) {", ".join(map(repr, events))} in final step')
-    self.transitions.append(Transition(state_to_features(last_game_state), last_action, None, reward_from_events(self, events)))
-    
+    self.transitions.append(
+        Transition(state_to_features(last_game_state), last_action, None, reward_from_events(self, events)))
+
     if len(self.transitions) > BATCH_SIZE:
-        batch = random.sample(self.transitions, BATCH_SIZE) # list of tuples
+        batch = random.sample(self.transitions, BATCH_SIZE)  # list of tuples
     else:
         batch = self.transitions
-    
+
     states, actions, next_states, rewards = zip(*batch)
-    train_step(states, actions, next_states, rewards)
-    
+    train_step(self, states, actions, next_states, rewards)
+
     # Store the model
     with open("my-saved-model.pt", "wb") as file:
         pickle.dump(self.model, file)
     self.ngames += 1
-    
+
+
 def train_step(self, state, action, next_state, reward):
     state = torch.tensor(state, dtype=torch.float)
     next_state = torch.tensor(next_state, dtype=torch.float)
     action = torch.tensor(action, dtype=torch.long)
     reward = torch.tensor(reward, dtype=torch.float)
-    
+
     # 1: predicted Q values with current state
     pred = self.model(state)
 
@@ -141,7 +146,7 @@ def reward_from_events(self, events: List[str]) -> int:
         e.GOT_KILLED: -10,
         e.INVALID_ACTION: -1,
         e.SURVIVED_ROUND: 0.5,
-        
+
         e.WAITED: 0,
         e.BOMB_DROPPED: 0,
         e.BOMB_EXPLODED: 0,
