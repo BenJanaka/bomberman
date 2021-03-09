@@ -1,6 +1,7 @@
 import pickle
 import random
 import torch
+import numpy as np
 from collections import namedtuple, deque
 from typing import List
 
@@ -33,7 +34,7 @@ def setup_training(self):
     # Example: Setup an array that will note transition tuples
     # (s, a, r, s')
     self.transitions = deque(maxlen=TRANSITION_HISTORY_SIZE)
-    self.n_games = 0
+    self.model = LinearQNet(626, 300, 6) # input size, hidden size, output size
 
 
 def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_state: dict, events: List[str]):
@@ -99,19 +100,21 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     # Store the model
     with open("my-saved-model.pt", "wb") as file:
         pickle.dump(self.model, file)
-    self.ngames += 1
 
 
 def train_step(self, state, action, next_state, reward):
     state = torch.tensor(state, dtype=torch.float)
     next_state = torch.tensor(next_state, dtype=torch.float)
-    action = torch.tensor(action, dtype=torch.long)
+    # actions_dic = {'UP': 0, 'RIGHT': 1, 'DOWN': 2, 'LEFT': 3, 'WAIT': 4, 'BOMB': 5}
+    # action = torch.tensor(np.array([actions_dic[a] for a in action]), dtype=torch.long)
+    action = torch.tensor(action, dtype=torch.float)
     reward = torch.tensor(reward, dtype=torch.float)
 
     # 1: predicted Q values with current state
     pred = self.model(state)
 
     target = pred.clone()
+    # iterate over all episodes (that are saved)
     for idx in range(len(done)):
         Q_new = reward[idx]
         if not done[idx]:

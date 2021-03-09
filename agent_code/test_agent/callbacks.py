@@ -44,7 +44,7 @@ def act(self, game_state: dict) -> str:
     :return: The action to take as a string.
     """
     # todo Exploration vs exploitation
-    random_prob = 80 - self.n_games
+    random_prob = 80 - game_state['round']
     if self.train and random.randint(0, 200) < random_prob:
         self.logger.debug("Choosing action purely at random.")
         # 80%: walk in any direction. 10% wait. 10% bomb.
@@ -87,29 +87,29 @@ def state_to_features(game_state: dict) -> np.array:
     
     bombs = np.zeros(12) # at most 4 bombs * 3 values
     for i, bomb in enumerate(game_state['bombs']):
-        bombs[3*i: 3*i+3] = np.array([ bomb[0][0], bomb[0][1], bomb[1] ])
+        bombs[3*i: 3*i+3] = np.array([bomb[0][0], bomb[0][1], bomb[1]])
     
-    field_size = np.shape(game_state['field'])[0] * np.shape(game_state['field'])[1]
-    coins = np.zeros(field_size * 2) # in theory at most 1 coin per place is possible
+    # field_size = np.shape(game_state['field'])[0] * np.shape(game_state['field'])[1]
+    coins = np.zeros(9 * 2) # there are 9 coins distributed
     for i, coin in enumerate(game_state['coins']):
-        coins[2*i: 2*i+2] = np.array([ coin[0], coin[1] ])
+        coins[2*i: 2*i+2] = np.array([coin[0], coin[1]])
     
     self = player_to_feature(game_state['self'])
     
     others = np.zeros(12) # at most 3 opponents
     for i, opponent in enumerate(game_state['others']):
-        others[4*i: 4*i+4] = np.array([ opponent[0], opponent[1] ])
+        others[4*i: 4*i+4] = np.array([opponent[0], opponent[1]])
     
-    state_list = np.array([ game_state['round'],
-        game_state['step'],
-        game_state['field'].reshape(-1),
-        bombs,
-        game_state['explosion_map'].reshape(-1),
-        coins,
-        self,
-        others])
+    state_list = np.array([game_state['round'], # 1
+        game_state['step'], # 1
+        game_state['field'].reshape(-1), # 17x17
+        bombs, # 12
+        game_state['explosion_map'].reshape(-1), # 17x17
+        coins, # 9x2
+        self, # 4
+        others]) # 4x3
         
-    return np.stack(state_list)
+    return np.stack(state_list) # 626 entries in total
     
     # # For example, you could construct several channels of equal shape, ...
     # channels = []
@@ -120,9 +120,9 @@ def state_to_features(game_state: dict) -> np.array:
     # return stacked_channels.reshape(-1)
 
 def player_to_feature(SELF):
-    '''
+    """
     SELF: (str, int1, bool2, (int3, int4))
     returns: [int1, int2, int3, int4]
     The string holding the players name is dropped
-    '''
+    """
     return np.array([SELF[1], int(SELF[2]), SELF[3][0], SELF[3][1]])
