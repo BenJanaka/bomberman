@@ -6,7 +6,7 @@ from fallbacks import pygame
 COLS = 17
 ROWS = 17
 CRATE_DENSITY = 0
-MAX_AGENTS = 4
+MAX_AGENTS = 1
 
 # Round properties
 MAX_STEPS = 400

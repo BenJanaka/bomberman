@@ -2,6 +2,7 @@ import os
 import pickle
 import random
 import torch
+from .model import LinearQNet
 
 import numpy as np
 
@@ -30,9 +31,9 @@ def setup(self):
         self.model = weights / weights.sum()
     else:
         self.logger.info("Loading model from saved state.")
-        with open("my-saved-model.pt", "rb") as file:
-            self.model = pickle.load(file)
-
+        self.model = LinearQNet(626, 300, 6)
+        self.model.load_state_dict(torch.load('my-saved-model.pt'))
+        self.model.eval()
 
 def act(self, game_state: dict) -> str:
     """
@@ -44,14 +45,16 @@ def act(self, game_state: dict) -> str:
     :return: The action to take as a string.
     """
     # todo Exploration vs exploitation
-    random_prob = 80 - game_state['round']
-    if self.train and random.randint(0, 200) < random_prob:
+    random_prob = .1
+    if self.train and random.random() < random_prob:
         self.logger.debug("Choosing action purely at random.")
         # 80%: walk in any direction. 10% wait. 10% bomb.
         return np.random.choice(ACTIONS, p=[.2, .2, .2, .2, .1, .1])
     else:
         state = torch.tensor(state_to_features(game_state), dtype=torch.float)
         prediction = self.model(state)
+        print(prediction)
+        print(ACTIONS[torch.argmax(prediction).item()])
         return ACTIONS[torch.argmax(prediction).item()]
     
         # self.logger.debug("Querying model for action.")
@@ -65,7 +68,8 @@ def state_to_features(game_state: dict) -> np.array:
     Converts the game state to the input of your model, i.e.
     a feature vector.
     
-    game_state: {'round': int,
+    game_state: {
+    'round': int,
     'step': int,
     'field': np.array(width, height),
     'bombs': [((int, int), int), ...],
@@ -81,35 +85,41 @@ def state_to_features(game_state: dict) -> np.array:
     :param game_state:  A dictionary describing the current game board.
     :return: np.array
     """
+
     # This is the dict before the game begins and after it ends
     if game_state is None:
         return None
+
+    state_features = np.array([game_state['round'], game_state['step']])
     
     bombs = np.zeros(12) # at most 4 bombs * 3 values
     for i, bomb in enumerate(game_state['bombs']):
         bombs[3*i: 3*i+3] = np.array([bomb[0][0], bomb[0][1], bomb[1]])
-    
+
+
     # field_size = np.shape(game_state['field'])[0] * np.shape(game_state['field'])[1]
     coins = np.zeros(9 * 2) # there are 9 coins distributed
     for i, coin in enumerate(game_state['coins']):
         coins[2*i: 2*i+2] = np.array([coin[0], coin[1]])
-    
+
     self = player_to_feature(game_state['self'])
     
     others = np.zeros(12) # at most 3 opponents
     for i, opponent in enumerate(game_state['others']):
-        others[4*i: 4*i+4] = np.array([opponent[0], opponent[1]])
-    
-    state_list = np.array([game_state['round'], # 1
-        game_state['step'], # 1
-        game_state['field'].reshape(-1), # 17x17
-        bombs, # 12
-        game_state['explosion_map'].reshape(-1), # 17x17
-        coins, # 9x2
-        self, # 4
-        others]) # 4x3
-        
-    return np.stack(state_list) # 626 entries in total
+        others[4*i: 4*i+4] = np.array(player_to_feature(game_state['others'][i]))
+
+    # state_list = np.array([
+    #
+    #     bombs, # 12
+    #     coins, # 9x2
+    #     self, # 4
+    #     others]) # 4x3
+
+    state_features = np.concatenate((self, state_features, game_state['field'].reshape(-1),
+                                     game_state['explosion_map'].reshape(-1),  # 17x17
+                                     bombs, coins, others))
+
+    return state_features # 626 entries in total
     
     # # For example, you could construct several channels of equal shape, ...
     # channels = []

@@ -3,7 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import os
 
-
 class LinearQNet(nn.Module):
     def __init__(self, input_size, hidden_size, output_size):
         super().__init__()
@@ -19,10 +18,13 @@ class LinearQNet(nn.Module):
         x = self.linear3(x)
         return x
 
-    def save(self, file_name='model.pth'):
-        model_folder_path = './model'
-        if not os.path.exists(model_folder_path):
-            os.makedirs(model_folder_path)
+    def save(self):
+        path = './my-saved-model.pt'
+        torch.save(self.state_dict(), path)
 
-        file_name = os.path.join(model_folder_path, file_name)
-        torch.save(self.state_dict(), file_name)
+    # def load(self, file_name='model.pth'):
+    #     model_folder_path = './model'
+    #     if not os.path.exists(model_folder_path):
+    #         raise Exception("Could not load the model. No Model found")
+    #     model.load_state_dict(torch.load(PATH))
+    #     model.eval()
