@@ -86,53 +86,36 @@ def state_to_features(game_state: dict) -> np.array:
     :return: np.array
     """
 
-    n_features = 626
+    n_features = 15*15+3
 
     # This is the dict before the game begins and after it ends
     if game_state is None:
         return np.zeros(n_features)
 
-    state_features = np.array([game_state['round'], game_state['step']])
-    
-    bombs = np.zeros(12) # at most 4 bombs * 3 values
-    for i, bomb in enumerate(game_state['bombs']):
-        bombs[3*i: 3*i+3] = np.array([bomb[0][0], bomb[0][1], bomb[1]])
+    map = game_state['field'][1:-1, 1:-1]
+    # idea: positive values for "good" fields, negative values for danger
+    for coin_coord in game_state['coins']:
+        map[coin_coord[0]-1, coin_coord[1]-1] = 100
+    for bomb in game_state['bombs']:
+        bomb_coord = bomb[0]
+        timer = bomb[1]
+        # bombs detonate after four steps
+        # idea: the danger from bomb gets larger and larger: -10, -20, -30
+        map[bomb_coord[0]-1, bomb_coord[1]-1] = -10 - 10*(3-timer)
+    # for how many more steps an explosion will be present
+    # explosions linger for two time steps
+    map[game_state['explosion_map'][1:-1, 1:-1] == 2] = -100
+    map[game_state['explosion_map'][1:-1, 1:-1] == 1] = -90
 
-    coins = np.zeros(9 * 2) # there are 9 coins distributed
-    for i, coin in enumerate(game_state['coins']):
-        coins[2*i: 2*i+2] = np.array([coin[0], coin[1]])
+    for opponent in game_state['others']:
+        opp_coord = opponent[3]
+        can_throw_bomb = opponent[2]
+        map[opp_coord[0]-1, opp_coord[1]-1] = 50 - 5 * int(can_throw_bomb)
 
-    self = player_to_feature(game_state['self'])
-    
-    others = np.zeros(12) # at most 3 opponents
-    for i, opponent in enumerate(game_state['others']):
-        others[4*i: 4*i+4] = np.array(player_to_feature(game_state['others'][i]))
+    map_vector = np.concatenate(map)
 
-    # state_list = np.array([
-    #
-    #     bombs, # 12
-    #     coins, # 9x2
-    #     self, # 4
-    #     others]) # 4x3
+    self_coord = game_state['self'][3]
+    can_throw_bomb = game_state['self'][2]
+    state_vector = np.concatenate((map_vector, list(self_coord), [can_throw_bomb]))
 
-    state_features = np.concatenate((self, state_features, game_state['field'].reshape(-1),
-                                     game_state['explosion_map'].reshape(-1),  # 17x17
-                                     bombs, coins, others))
-
-    return state_features # 626 entries in total
-    
-    # # For example, you could construct several channels of equal shape, ...
-    # channels = []
-    # channels.append(...)
-    # # concatenate them as a feature tensor (they must have the same shape), ...
-    # stacked_channels = np.stack(channels)
-    # # and return them as a vector
-    # return stacked_channels.reshape(-1)
-
-def player_to_feature(SELF):
-    """
-    SELF: (str, int1, bool2, (int3, int4))
-    returns: [int1, int2, int3, int4]
-    The string holding the players name is dropped
-    """
-    return np.array([SELF[1], int(SELF[2]), SELF[3][0], SELF[3][1]])
+    return state_vector # 15x15+3 entries

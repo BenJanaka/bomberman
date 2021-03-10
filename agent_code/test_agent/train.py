@@ -24,6 +24,7 @@ BATCH_SIZE = 1000
 
 # Events
 PLACEHOLDER_EVENT = "PLACEHOLDER"
+SURVIVED_OWN_BOMB = "SURVIVED_OWN_BOMB"
 
 
 def setup_training(self):
@@ -38,7 +39,7 @@ def setup_training(self):
     # (s, a, r, s')
     self.learning_rate = 0.01
     self.gamma = 0.8
-    self.model = LinearQNet(626, 300, 6) # input size, hidden size, output size
+    self.model = LinearQNet(15*15+3, 300, 6) # input size, hidden size, output size
     self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
     self.criterion = nn.MSELoss()
     self.transitions = deque(maxlen=TRANSITION_HISTORY_SIZE)
@@ -68,6 +69,10 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     self.logger.debug(f'Encountered game event(s) {", ".join(map(repr, events))} in step {new_game_state["step"]}')
 
     # Idea: Add your own events to hand out rewards
+    # reward for placing a bomb and not running into its explosion
+    # condition: alive + in old state agent was not able to drop a bomb but now is able to
+    if self_action is not None and not old_game_state['self'][2] and new_game_state['self'][2]:
+        events.append(SURVIVED_OWN_BOMB)
     if ...:
         events.append(PLACEHOLDER_EVENT)
 
@@ -174,10 +179,12 @@ def reward_from_events(self, events: List[str]) -> int:
         e.KILLED_OPPONENT: 5,
         PLACEHOLDER_EVENT: -.1,  # idea: the custom event is bad
 
+        SURVIVED_OWN_BOMB: 10,
+
         e.CRATE_DESTROYED: .5,
         e.KILLED_SELF: -500,
         e.GOT_KILLED: -10,
-        e.INVALID_ACTION: -1,
+        e.INVALID_ACTION: -5,
         e.SURVIVED_ROUND: 0,
 
         e.WAITED: -1,
