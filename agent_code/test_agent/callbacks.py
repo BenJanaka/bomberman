@@ -53,8 +53,8 @@ def act(self, game_state: dict) -> str:
     else:
         state = torch.tensor(state_to_features(game_state), dtype=torch.float)
         prediction = self.model(state)
-        print(prediction)
-        print(ACTIONS[torch.argmax(prediction).item()])
+        # print(prediction)
+        # print(ACTIONS[torch.argmax(prediction).item()])
         return ACTIONS[torch.argmax(prediction).item()]
     
         # self.logger.debug("Querying model for action.")
@@ -86,9 +86,11 @@ def state_to_features(game_state: dict) -> np.array:
     :return: np.array
     """
 
+    n_features = 626
+
     # This is the dict before the game begins and after it ends
     if game_state is None:
-        return None
+        return np.zeros(n_features)
 
     state_features = np.array([game_state['round'], game_state['step']])
     
@@ -96,8 +98,6 @@ def state_to_features(game_state: dict) -> np.array:
     for i, bomb in enumerate(game_state['bombs']):
         bombs[3*i: 3*i+3] = np.array([bomb[0][0], bomb[0][1], bomb[1]])
 
-
-    # field_size = np.shape(game_state['field'])[0] * np.shape(game_state['field'])[1]
     coins = np.zeros(9 * 2) # there are 9 coins distributed
     for i, coin in enumerate(game_state['coins']):
         coins[2*i: 2*i+2] = np.array([coin[0], coin[1]])

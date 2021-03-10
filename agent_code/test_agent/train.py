@@ -8,6 +8,7 @@ import torch.nn as nn
 import torch.optim as optim
 import pprint
 import events as e
+import sys
 from .callbacks import state_to_features
 
 from .model import LinearQNet
@@ -67,8 +68,9 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     self.logger.debug(f'Encountered game event(s) {", ".join(map(repr, events))} in step {new_game_state["step"]}')
 
     # Idea: Add your own events to hand out rewards
-    # if ...:
-    #     events.append(PLACEHOLDER_EVENT)
+    if ...:
+        events.append(PLACEHOLDER_EVENT)
+
     t = Transition(state_to_features(old_game_state), self_action, state_to_features(new_game_state),
                    reward_from_events(self, events))
     # state_to_features is defined in callbacks.py
@@ -76,8 +78,8 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
 
     #print(t)
     state, action, next_state, reward = t.state, t.action, t.next_state, t.reward
-    if state is not None:
-        train_step(self, [state], [action], [next_state], [reward])
+    #if state is not None:
+    train_step(self, [state], [action], [next_state], [reward])
 
 
 def end_of_round(self, last_game_state: dict, last_action: str, events: List[str]):
@@ -95,7 +97,7 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
 
     self.logger.debug(f'Encountered event(s) {", ".join(map(repr, events))} in final step')
     self.transitions.append(
-        Transition(state_to_features(last_game_state), last_action, None, reward_from_events(self, events)))
+        Transition(state_to_features(last_game_state), last_action, state_to_features(None), reward_from_events(self, events)))
 
     if len(self.transitions) > BATCH_SIZE:
         batch = random.sample(self.transitions, BATCH_SIZE)  # list of tuples
@@ -109,11 +111,8 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     # print("Next-States at the end of a round: ")
     # print(list(next_states[1:]))
     # print("shape of states", states[1].shape)
-    states = list(states)
-    states = [np.zeros(626) if v is None else v for v in states]
-    next_states = list(next_states)
-    next_states = [np.zeros(626) if v is None else v for v in states]
-    train_step(self, states, list(actions), next_states, list(rewards))
+
+    train_step(self, list(states), list(actions), list(next_states), list(rewards))
 
     # Store the model
     # TODO: Store best record
@@ -125,31 +124,39 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
 def train_step(self, state, action, next_state, reward):
     # print("reward before creating tensor", reward)
     # print("shape of transitions", self.transitions.count)
-    if state is None:
-        return
+    # if state is None:
+    #     return
+
     state = torch.tensor(state, dtype=torch.float)
     actions_dic = {'UP': 0, 'RIGHT': 1, 'DOWN': 2, 'LEFT': 3, 'WAIT': 4, 'BOMB': 5, None: -1}
     next_state = torch.tensor(next_state, dtype=torch.float)
     action = torch.tensor(np.array([actions_dic[a] for a in action]), dtype=torch.long)
     reward = torch.tensor(reward, dtype=torch.float)
-    # print(reward)
-    # 1: predicted Q values with current state
-    pred = self.model(state)
-    Q = pred.clone()
-    # iterate over all episodes (that are saved)
+
+    # 1: predicted Q values: expected reward of current state and action with dimension 6 (# actions)
+    Q_pred = self.model(state)
+    Q = Q_pred.clone()
     # TODO: Fix RuntimeError: expand(torch.FloatTensor{[6]}, size=[]): the number of sizes provided (0) must be greater or equal to the number of dimensions in the tensor (1)
+
     for idx in range(len(reward)):
         Q_new = reward[idx]
-        if not next_state[idx] is None:
-            Q_new = Q + self.learning_rate * (reward[idx] + self.gamma * torch.max(self.model(next_state[idx]) - Q))
+        # if not next_state[idx] is None:
+        if not action[idx] is None: # final states have no action and we replaced None states with np.zeros(626)
+
+            # temporal difference (TD) value estimation (see third lecture examples)
+            Q_new = reward[idx] + self.gamma * torch.max(self.model(next_state[idx]))
+
+            # for the following approach, Q is would be a tensor of shape (state_size, action_size) which is too large to store
+            # as there are a huge number of possible states
+            # Q_new = Q_pred + self.learning_rate * (reward[idx] + self.gamma * torch.max(self.model(next_state[idx]) - Q_pred))
 
         Q[idx][torch.argmax(action[idx]).item()] = Q_new
 
     # 2: Q_new = r + y * max(next_predicted Q value) -> only do this if not done
-    # pred.clone()
+    # Q_pred.clone()
     # preds[argmax(action)] = Q_new
     self.optimizer.zero_grad()
-    loss = self.criterion(Q, pred)
+    loss = self.criterion(Q, Q_pred)
     loss.backward()
 
     self.optimizer.step()
@@ -168,7 +175,7 @@ def reward_from_events(self, events: List[str]) -> int:
         PLACEHOLDER_EVENT: -.1,  # idea: the custom event is bad
 
         e.CRATE_DESTROYED: .5,
-        e.KILLED_SELF: -10,
+        e.KILLED_SELF: -500,
         e.GOT_KILLED: -10,
         e.INVALID_ACTION: -1,
         e.SURVIVED_ROUND: 0,
