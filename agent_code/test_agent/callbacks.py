@@ -3,6 +3,7 @@ import pickle
 import random
 import torch
 from .model import LinearQNet
+import torch, torch.nn as nn
 
 import numpy as np
 
@@ -24,14 +25,20 @@ def setup(self):
 
     :param self: This object is passed to all callbacks and you can set arbitrary values.
     """
+
+    self.n_features = 15 * 15 + 3
     
     if self.train or not os.path.isfile("my-saved-model.pt"):
         self.logger.info("Setting up model from scratch.")
-        weights = np.random.rand(len(ACTIONS))
-        self.model = weights / weights.sum()
+        self.model = LinearQNet(self.n_features, 600, 6)
+        nn.init.normal_(self.model.linear1.weight, mean=0, std=1.0)
+        nn.init.normal_(self.model.linear2.weight, mean=0, std=1.0)
+        nn.init.normal_(self.model.linear3.weight, mean=0, std=1.0)
+        # weights = np.random.rand(len(ACTIONS))
+        # self.model = weights / weights.sum()
     else:
         self.logger.info("Loading model from saved state.")
-        self.model = LinearQNet(626, 300, 6)
+        self.model = LinearQNet(self.n_features, 300, 6)
         self.model.load_state_dict(torch.load('my-saved-model.pt'))
         self.model.eval()
 
@@ -45,23 +52,22 @@ def act(self, game_state: dict) -> str:
     :return: The action to take as a string.
     """
     # todo Exploration vs exploitation
-    random_prob = .1
+    random_prob = .5
     if self.train and random.random() < random_prob:
         self.logger.debug("Choosing action purely at random.")
         # 80%: walk in any direction. 10% wait. 10% bomb.
         return np.random.choice(ACTIONS, p=[.2, .2, .2, .2, .1, .1])
     else:
-        state = torch.tensor(state_to_features(game_state), dtype=torch.float)
+        state = torch.tensor(state_to_features(self, game_state), dtype=torch.float)
         prediction = self.model(state)
-        # print(prediction)
-        # print(ACTIONS[torch.argmax(prediction).item()])
-        return ACTIONS[torch.argmax(prediction).item()]
-    
-        # self.logger.debug("Querying model for action.")
+        action = ACTIONS[torch.argmax(prediction).item()]
+        self.logger.debug("Querying model for action: {action}".format(action=action))
+        return action
+
         # return np.random.choice(ACTIONS, p=self.model)
 
 
-def state_to_features(game_state: dict) -> np.array:
+def state_to_features(self, game_state: dict) -> np.array:
     """
     *This is not a required function, but an idea to structure your code.*
 
@@ -86,11 +92,11 @@ def state_to_features(game_state: dict) -> np.array:
     :return: np.array
     """
 
-    n_features = 15*15+3
+
 
     # This is the dict before the game begins and after it ends
     if game_state is None:
-        return np.zeros(n_features)
+        return np.zeros(self.n_features)
 
     map = game_state['field'][1:-1, 1:-1]
     # idea: positive values for "good" fields, negative values for danger
