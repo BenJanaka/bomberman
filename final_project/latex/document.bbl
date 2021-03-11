@@ -1,0 +1,28 @@
+\begin{thebibliography}{1}
+
+\bibitem{AlanPresentation}
+F.~de~Morrée, I.~Stoustrup, and I.~Watkin.
+\newblock Outplaying humans in bomberman using deep q-learning, 2019.
+
+\bibitem{GoulartBomberman}
+c.~Goulart Faria Motta~França, A.~Paes, and E.~Clua.
+\newblock {\em Learning How to Play Bomberman with Deep Reinforcement and
+  Imitation Learning}, pages 121--133.
+\newblock 11 2019.
+
+\bibitem{Lecture}
+U.~Köthe.
+\newblock Fundamentals of machine learning, 2021.
+
+\bibitem{UBHD-68505368}
+S.~Ravichandiran.
+\newblock {\em Hands-on reinforcement learning with Python}.
+\newblock Packt Publishing, Birmingham, UK, 2018.
+\newblock Includes bibliographical references. - Description based on online
+  resource; title from title page (Safari, viewed August 2, 2018).
+
+\bibitem{Pommerman}
+D.~Shah, N.~Singh, and C.~Talegaonkar.
+\newblock Multi-agent strategies for pommerman, 2017.
+
+\end{thebibliography}
