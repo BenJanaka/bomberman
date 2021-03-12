@@ -92,8 +92,13 @@ def state_to_features(self, game_state: dict) -> np.array:
     :return: np.array
     """
 
-
-
+    # TODO: implement perceptual field with:
+    #  own coordinates
+    #  blocking walls as p x p,
+    #  active flame blocks as p x p
+    #  coordinates of coins 9 * (x,y). sort the coins by distance to our agent. Fill the rest of the coin matrix by (-1, -1)
+    #  For the bombs, 4 x 3: for every bomb coordinate and countdown. Fill with (-1, -1, 0) as filler
+    #  32 + 2p^2
     # This is the dict before the game begins and after it ends
     if game_state is None:
         return np.zeros(self.n_features)

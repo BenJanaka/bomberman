@@ -16,9 +16,9 @@ Transition = namedtuple('Transition',
                         ('state', 'action', 'next_state', 'reward'))
 
 # Hyper parameters -- DO modify
-TRANSITION_HISTORY_SIZE = 100  # keep only ... last transitions
+TRANSITION_HISTORY_SIZE = 1000  # keep only ... last transitions
 RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
-BATCH_SIZE = 1000
+BATCH_SIZE = 100
 
 # Events
 PLACEHOLDER_EVENT = "PLACEHOLDER"
