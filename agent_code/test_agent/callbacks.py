@@ -26,11 +26,11 @@ def setup(self):
     :param self: This object is passed to all callbacks and you can set arbitrary values.
     """
 
-    self.n_features = 15 * 15 + 3
+    self.n_features = 51
     
     if self.train or not os.path.isfile("my-saved-model.pt"):
         self.logger.info("Setting up model from scratch.")
-        self.model = LinearQNet(self.n_features, 600, 6)
+        self.model = LinearQNet(self.n_features, 6)
         nn.init.normal_(self.model.linear1.weight, mean=0, std=1.0)
         nn.init.normal_(self.model.linear2.weight, mean=0, std=1.0)
         nn.init.normal_(self.model.linear3.weight, mean=0, std=1.0)
@@ -38,7 +38,7 @@ def setup(self):
         # self.model = weights / weights.sum()
     else:
         self.logger.info("Loading model from saved state.")
-        self.model = LinearQNet(self.n_features, 300, 6)
+        self.model = LinearQNet(self.n_features, 6)
         self.model.load_state_dict(torch.load('my-saved-model.pt'))
         self.model.eval()
 
@@ -93,40 +93,50 @@ def state_to_features(self, game_state: dict) -> np.array:
     """
 
     # TODO: implement perceptual field with:
-    #  own coordinates
-    #  blocking walls as p x p,
-    #  active flame blocks as p x p
-    #  coordinates of coins 9 * (x,y). sort the coins by distance to our agent. Fill the rest of the coin matrix by (-1, -1)
+    #  own coordinates + bomb available = 3
+    #  blocking walls as p x p = 9
+    #  active flame blocks as = 9
+    #  coordinates of coins 9 * (x,y). sort the coins by distance to our agent. Fill the rest of the coin matrix by (-1, -1) = 18
     #  For the bombs, 4 x 3: for every bomb coordinate and countdown. Fill with (-1, -1, 0) as filler
-    #  32 + 2p^2
+    #  33 + 2p^2
     # This is the dict before the game begins and after it ends
     if game_state is None:
         return np.zeros(self.n_features)
 
-    map = game_state['field'][1:-1, 1:-1]
-    # idea: positive values for "good" fields, negative values for danger
-    for coin_coord in game_state['coins']:
-        map[coin_coord[0]-1, coin_coord[1]-1] = 100
-    for bomb in game_state['bombs']:
-        bomb_coord = bomb[0]
-        timer = bomb[1]
-        # bombs detonate after four steps
-        # idea: the danger from bomb gets larger and larger: -10, -20, -30
-        map[bomb_coord[0]-1, bomb_coord[1]-1] = -10 - 10*(3-timer)
-    # for how many more steps an explosion will be present
-    # explosions linger for two time steps
-    map[game_state['explosion_map'][1:-1, 1:-1] == 2] = -100
-    map[game_state['explosion_map'][1:-1, 1:-1] == 1] = -90
+    own_agent = [game_state["self"][2]] + list(game_state["self"][3])
+    # Walls and explosion sub-fields. 3x3 around our agent
+    walls_pxp = list(game_state['field'][own_agent[1]-1:own_agent[1]+2, own_agent[2]-1:own_agent[2]+2].flatten())
+    explosions_pxp = list(game_state['explosion_map'][own_agent[1]-1:own_agent[1]+2, own_agent[2]-1:own_agent[2]+2].flatten())
+    # list of coins where each coins coordinate is saved.
+    coin_list = [-1] * 9 * 2
+    # List of bombs where each bombs coordinate and its countdown in listed.
+    bomb_list = [-1] * 3 * 4  # 3 * 9
 
-    for opponent in game_state['others']:
-        opp_coord = opponent[3]
-        can_throw_bomb = opponent[2]
-        map[opp_coord[0]-1, opp_coord[1]-1] = 50 - 5 * int(can_throw_bomb)
+    # Create distances between own position and bomb positions
+    own_pos = np.array((own_agent[1], own_agent[2]))
+    state_bombs = game_state['bombs']
+    distances = []
+    for idx, bomb in enumerate(state_bombs):
+        bomb_pos = np.array((bomb[0][0], bomb[0][1]))
+        # distance between own and bomb
+        distance = np.linalg.norm(own_pos - bomb_pos)
+        distances.append(distance)
 
-    map_vector = np.concatenate(map)
+    # Add each coin to the output list: coin_list
+    for idx, coin in enumerate(game_state['coins']):
+        coin_list[idx * 2: idx * 2 + 2] = list(coin)
 
-    self_coord = game_state['self'][3]
-    can_throw_bomb = game_state['self'][2]
-    state_vector = np.concatenate((map_vector, list(self_coord), [can_throw_bomb]))
+    # Add all bombs to the output list: bomb_list
+    for idx, bomb in enumerate(state_bombs):
+        # (x, y, countdown)
+        # replace slice by actual values
+        bomb_list[idx * 3:idx * 3 + 3] = list(bomb[0]) + [bomb[1]]
 
-    return state_vector # 15x15+3 entries
+    output = np.array(own_agent + walls_pxp + explosions_pxp + coin_list + bomb_list, dtype=np.float32)
+    return output # list of length 51
+
+
+
+
+def sortByDistance(element, distances):
+    pass

@@ -35,11 +35,11 @@ def setup_training(self):
 
     :param self: This object is passed to all callbacks and you can set arbitrary values.
     """
+    self.n_features = 51
     # Example: Setup an array that will note transition tuples
     # (s, a, r, s')
     self.learning_rate = 0.01
     self.gamma = 0.8
-    self.model = LinearQNet(15*15+3, 300, 6) # input size, hidden size, output size
     self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
     self.criterion = nn.MSELoss()
     self.transitions = deque(maxlen=TRANSITION_HISTORY_SIZE)
