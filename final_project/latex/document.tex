@@ -37,11 +37,12 @@
 	
 	\subsection*{Possible network adjustments}
 	
-	- Ich glaub convolutional layers und Normierungen ergeben keinen Sinn. Es ist eher wichtig, den feature Vektor von Hand gut zu designen
+	- Normierungen innerhalb des Netzes, good feature design (perceptive field figure \ref{fig:feat1}, or multiple layers for whole game field containing Walls, Bricks, Players, Danger(Bomb+Explosion), Enemies, Coins)
 	
 	\begin{figure}[ht]
 		\caption{Feature design with perceptual field in \cite{Pommerman}}
 		\includegraphics[width=7cm]{features_with_perceptual_field.png}
+		\label{fig:feat1}
 	\end{figure}
 	
 	- Lecture Notes: feature pre-processing via PCA
@@ -66,18 +67,19 @@
 	
 	\subsection*{Rewards}
 	
-	(how others did in Figure \ref{fig:rewards})
+	(how others did in Figure \ref{fig:rewards}, \ref{fig:rewardsALAN})
 	
 	\begin{figure}[ht]
 		\caption{From \cite{GoulartBomberman}}
 		\includegraphics{rewards.png}
 		\label{fig:rewards}
 	\end{figure}
-		
-	\subsection*{Batch choice}
-	Do we want to sample some \textit{random} batches of transitions from the buffer (batch size of Atari network is 48, \# episodes = 800, learning rate = 0.001, discount factor = 0.97, input size = (88, 80, 1))? And do we want to do that only if the round (episode, = player dead) is finished?
-	
-	Lecture notes: We need to sample a batch!
+
+	\begin{figure}[ht!]
+		\caption{From \cite{AlanPresentation}}
+		\includegraphics[width=6cm]{rewardsALAN.png}
+		\label{fig:rewardsALAN}
+	\end{figure}
 	
 	\subsection*{Reward clipping}
 	"How do we assign rewards? Reward assignment varies for each game. In some games, we can assign rewards such as +1 for winning, -1 for loss, and 0 for nothing, but in some other games, we have to assign rewards such as + 100 for doing an action and +50 for doing another action. To avoid this problem, we clip all the rewards to -1 and +1." \cite{UBHD-68505368}

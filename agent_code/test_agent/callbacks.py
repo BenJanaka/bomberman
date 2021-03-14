@@ -7,8 +7,9 @@ import torch, torch.nn as nn
 
 import numpy as np
 
-
+VIEW_DIST = 3
 ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
+
 
 
 def setup(self):
@@ -26,21 +27,27 @@ def setup(self):
     :param self: This object is passed to all callbacks and you can set arbitrary values.
     """
 
-    self.n_features = 51
+    self.n_features = 4*(VIEW_DIST*2+1)**2 + 1
     
-    if self.train or not os.path.isfile("my-saved-model.pt"):
+    if not os.path.isfile("my-saved-model_4linearlayers_400_200_200.pt"):
         self.logger.info("Setting up model from scratch.")
         self.model = LinearQNet(self.n_features, 6)
-        nn.init.normal_(self.model.linear1.weight, mean=0, std=1.0)
-        nn.init.normal_(self.model.linear2.weight, mean=0, std=1.0)
-        nn.init.normal_(self.model.linear3.weight, mean=0, std=1.0)
+        nn.init.normal_(self.model.linear1.weight, mean=0, std=1.0/265)
+        nn.init.normal_(self.model.linear2.weight, mean=0, std=1.0/265)
+        nn.init.normal_(self.model.linear3.weight, mean=0, std=1.0/265)
+        nn.init.normal_(self.model.linear4.weight, mean=0, std=1.0/265)
+        nn.init.normal_(self.model.linear5.weight, mean=0, std=1.0 / 265)
+
         # weights = np.random.rand(len(ACTIONS))
         # self.model = weights / weights.sum()
+
     else:
         self.logger.info("Loading model from saved state.")
         self.model = LinearQNet(self.n_features, 6)
-        self.model.load_state_dict(torch.load('my-saved-model.pt'))
-        self.model.eval()
+        self.model.load_state_dict(torch.load('my-saved-model_4linearlayers_400_200_200.pt'))
+        if not self.train:
+            self.model.eval()
+
 
 def act(self, game_state: dict) -> str:
     """
@@ -51,12 +58,13 @@ def act(self, game_state: dict) -> str:
     :param game_state: The dictionary that describes everything on the board.
     :return: The action to take as a string.
     """
-    # todo Exploration vs exploitation
-    random_prob = .5
-    if self.train and random.random() < random_prob:
+    if game_state is None:
+        return "WAIT"
+    # Exploration vs exploitation
+    if self.train and random.random() < self.exploration_prob:
         self.logger.debug("Choosing action purely at random.")
         # 80%: walk in any direction. 10% wait. 10% bomb.
-        return np.random.choice(ACTIONS, p=[.2, .2, .2, .2, .1, .1])
+        return np.random.choice(ACTIONS, p=[.2, .2, .2, .2, .15, .05])
     else:
         state = torch.tensor(state_to_features(self, game_state), dtype=torch.float)
         prediction = self.model(state)
@@ -66,8 +74,44 @@ def act(self, game_state: dict) -> str:
 
         # return np.random.choice(ACTIONS, p=self.model)
 
+def state_to_features(self, game_state):
+    if game_state is None:
+        return np.zeros(self.n_features)
 
-def state_to_features(self, game_state: dict) -> np.array:
+    self_coord = list(game_state["self"][3])
+    self_coord = [1,1]
+    # Walls 5x5 around our agent: view_dist = 2
+    view_dist = VIEW_DIST
+    shift = view_dist-1
+    left = self_coord[0]+shift - view_dist
+    right = self_coord[0]+shift + view_dist
+    bottom = self_coord[1]+shift + view_dist
+    top = self_coord[1]+shift - view_dist
+
+    padded_field = np.pad(game_state['field'], view_dist-1, constant_values=-1)
+    walls = padded_field[left:right+1, top:bottom+1]
+    padded_explosion_map = np.pad(game_state['explosion_map'], view_dist-1, constant_values=-1)
+    explosions = padded_explosion_map[left:right + 1, top:bottom + 1]
+
+    coins = np.zeros(np.shape(padded_field))
+    for coin in game_state["coins"]:
+        coins[coin[0]+shift, coin[1]+shift] = 1
+    coins = coins[left:right+1, top:bottom+1]
+
+    bombs = np.zeros(np.shape(padded_field))
+    for bomb in game_state["bombs"]:
+        bombs[bomb[0][0]+shift, bomb[0][1]+shift] = bomb[1]
+    bombs = bombs[left:right+1, top:bottom+1]
+
+    # TODO opponents
+    bomb_ready = int(game_state['self'][2])
+
+    output = np.stack([walls, explosions, coins, bombs]).flatten()
+    output = np.concatenate((output, [bomb_ready]))
+    return output # list of length 51
+
+
+def state_to_features_(self, game_state: dict) -> np.array:
     """
     *This is not a required function, but an idea to structure your code.*
 

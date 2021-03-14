@@ -9,7 +9,6 @@ import events as e
 import sys
 from .callbacks import state_to_features
 
-from .model import LinearQNet
 
 # This is only an example!
 Transition = namedtuple('Transition',
@@ -19,10 +18,20 @@ Transition = namedtuple('Transition',
 TRANSITION_HISTORY_SIZE = 1000  # keep only ... last transitions
 RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
 BATCH_SIZE = 100
+EXPLORATION_PROB = 0.15
+LEARNING_RATE = 0.0005
 
 # Events
 PLACEHOLDER_EVENT = "PLACEHOLDER"
 SURVIVED_OWN_BOMB = "SURVIVED_OWN_BOMB"
+COLLECTED_THIRD_OR_HIGHER_COIN = "COLLECTED_THIRD_OR_HIGHER_COIN"
+PERFORMED_SAME_INVALID_ACTION_TWICE = "PERFORMED_SAME_INVALID_ACTION_TWICE"
+
+# rewards are given only once for events:
+MOVED_TOWARDS_CENTER_1, MOVED_TOWARDS_CENTER_2 = "MOVED_TOWARDS_CENTER_1", "MOVED_TOWARDS_CENTER_2"
+MOVED_TOWARDS_CENTER_3, MOVED_TOWARDS_CENTER_4 = "MOVED_TOWARDS_CENTER_3", "MOVED_TOWARDS_CENTER_4"
+MOVED_TOWARDS_CENTER_5, MOVED_TOWARDS_CENTER_6 = "MOVED_TOWARDS_CENTER_5", "MOVED_TOWARDS_CENTER_6"
+REACHED_CENTER = "REACHED_CENTER"
 
 actions_dic = {'UP': 0, 'RIGHT': 1, 'DOWN': 2, 'LEFT': 3, 'WAIT': 4, 'BOMB': 5}
 
@@ -35,14 +44,20 @@ def setup_training(self):
 
     :param self: This object is passed to all callbacks and you can set arbitrary values.
     """
-    self.n_features = 51
     # Example: Setup an array that will note transition tuples
     # (s, a, r, s')
-    self.learning_rate = 0.01
-    self.gamma = 0.8
+    self.learning_rate = LEARNING_RATE
+    self.exploration_prob = EXPLORATION_PROB
+    self.gamma = 0.9
+    self.record = 0
     self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
-    self.criterion = nn.MSELoss()
+    self.criterion = nn.SmoothL1Loss()
+    # self.criterion = nn.MSELoss()
     self.transitions = deque(maxlen=TRANSITION_HISTORY_SIZE)
+    self.closest_to_center = 7
+    print(f'Started training session with learning rate {self.learning_rate} and exploration probability {self.exploration_prob}')
+    print('At end of each round:')
+    print(' round  score  record of this session          loss')
 
 
 def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_state: dict, events: List[str]):
@@ -63,16 +78,45 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     :param new_game_state: The state the agent is in now.
     :param events: The events that occurred when going from  `old_game_state` to `new_game_state`
     """
-    # if old_game_state is not None:
-    # self.oppenents = [old_game_state['others'] ]
+
+    # in the first step, old state is None
+    if old_game_state is None:
+        return
+
     self.round = new_game_state["round"]
+    self.step = new_game_state["step"]
     self.logger.debug(f'Encountered game event(s) {", ".join(map(repr, events))} in step {new_game_state["step"]}')
 
-    # Idea: Add your own events to hand out rewards
     # reward for placing a bomb and not running into its explosion
     # condition: alive + in old state agent was not able to drop a bomb but now is able to
     if self_action is not None and not old_game_state['self'][2] and new_game_state['self'][2]:
         events.append(SURVIVED_OWN_BOMB)
+    n_left_coins = len(new_game_state['coins'])
+    if "COIN_COLLECTED" in events and n_left_coins <= 6:
+        events.append(COLLECTED_THIRD_OR_HIGHER_COIN)
+    if len(self.transitions) > 2:
+        last_transition = self.transitions[-1]
+        if "INVALID_ACTION" in events and self_action == last_transition.action:
+            events.append(PERFORMED_SAME_INVALID_ACTION_TWICE)
+    # if agents moved towards center:
+    # closest point is saved so that a repeated back and forth movement is prevented
+    self_coord = old_game_state['self'][3]
+    if abs(self_coord[0] - 8) < self.closest_to_center or abs(self_coord[1] - 8) < self.closest_to_center:
+        self.closest_to_center -= 1
+        if self.closest_to_center == 6:
+            events.append(MOVED_TOWARDS_CENTER_6)
+        elif self.closest_to_center == 5:
+            events.append(MOVED_TOWARDS_CENTER_5)
+        elif self.closest_to_center == 4:
+            events.append(MOVED_TOWARDS_CENTER_4)
+        elif self.closest_to_center == 3:
+            events.append(MOVED_TOWARDS_CENTER_3)
+        elif self.closest_to_center == 2:
+            events.append(MOVED_TOWARDS_CENTER_2)
+        elif self.closest_to_center == 1:
+            events.append(MOVED_TOWARDS_CENTER_1)
+        elif self.closest_to_center == 0:
+            events.append(REACHED_CENTER)
 
     t = Transition(state_to_features(self, old_game_state), self_action, state_to_features(self, new_game_state),
                    reward_from_events(self, events))
@@ -81,11 +125,12 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
 
     state, action, next_state, reward = t.state, t.action, t.next_state, t.reward
     #if state is not None:
-    train_step(self, [state], [action], [next_state], [reward])
+    train_step(self, [state], [action], [next_state], [reward], new_game_state['self'][1])
 
 
 def end_of_round(self, last_game_state: dict, last_action: str, events: List[str]):
     """
+    LONG TERM MEMORY
     Called at the end of each game or when the agent died to hand out final rewards.
 
     This is similar to reward_update. self.events will contain all events that
@@ -114,13 +159,15 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     # print(list(next_states[1:]))
     # print("shape of states", states[1].shape)
 
-    train_step(self, list(states), list(actions), list(next_states), list(rewards))
-
-    # Store the model
-    # TODO: Store best record
-    # with open("my-saved-model.pt", "wb") as file:
-    #     pickle.dump(self.model, file)
+    train_step(self, list(states), list(actions), list(next_states), list(rewards), last_game_state['self'][1])
+    final_score = last_game_state['self'][1]
+    if final_score >= self.record:
+        self.record = final_score
     self.model.save()
+    # else:
+    #     self.logger.info("Loading model from saved state.")
+    #     self.model = LinearQNet(self.n_features, 6)
+    #     self.model.load_state_dict(torch.load('my-saved-model_4linearlayers_400_200_200.pt'))
 
 def Action_To_One_Hot(action):
     one_hot = np.zeros(6)
@@ -133,7 +180,7 @@ def Action_To_One_Hot(action):
         return one_hot
 
 
-def train_step(self, state, action, next_state, reward):
+def train_step(self, state, action, next_state, reward, score):
     # print("reward before creating tensor", reward)
     # print("shape of transitions", self.transitions.count)
     # if state is None:
@@ -165,7 +212,6 @@ def train_step(self, state, action, next_state, reward):
             # for the following approach, Q is would be a tensor of shape (state_size, action_size) which is too large to store
             # as there are a huge number of possible states
             # Q_new = Q_pred + self.learning_rate * (reward[idx] + self.gamma * torch.max(self.model(next_state[idx]) - Q_pred))
-
         Q[idx][torch.argmax(action[idx]).item()] = Q_new
 
     # 2: Q_new = r + y * max(next_predicted Q value) -> only do this if not done
@@ -181,6 +227,12 @@ def train_step(self, state, action, next_state, reward):
     loss = self.criterion(Q, Q_pred)
 
     self.logger.info("Current Loss: {loss}".format(loss=loss))
+    sys.stdout.write('\r')
+    # f'result: {value:{width}.{precision}}'
+    # right aligned text: >
+    sys.stdout.write(f"{str(self.round):>6} {str(score):>6} {str(self.record):>23} "
+                     + f"{loss.item():>13.5f}")
+
     # Backward pass: compute gradient of the loss with respect to model
     # parameters
     loss.backward()
@@ -197,27 +249,35 @@ def reward_from_events(self, events: List[str]) -> int:
     certain behavior.
     """
     game_rewards = {
-        e.COIN_COLLECTED: 10,
-        e.KILLED_OPPONENT: 50,
-        PLACEHOLDER_EVENT: -.1,  # idea: the custom event is bad
+        e.COIN_COLLECTED: 50,
+        COLLECTED_THIRD_OR_HIGHER_COIN: 100,
+        e.KILLED_OPPONENT: 200,
+        SURVIVED_OWN_BOMB: 20,
 
-        SURVIVED_OWN_BOMB: 10,
-
-        e.CRATE_DESTROYED: .5,
+        e.CRATE_DESTROYED: 5,
         e.KILLED_SELF: -500,
         e.GOT_KILLED: -10,
-        e.INVALID_ACTION: -50,
+        e.INVALID_ACTION: -10,
+        PERFORMED_SAME_INVALID_ACTION_TWICE: -10,
         e.SURVIVED_ROUND: 0,
 
-        e.WAITED: -50,
-        e.BOMB_DROPPED: 0.1,
+        e.WAITED: -5,
+        e.BOMB_DROPPED: -15,
         e.BOMB_EXPLODED: 0,
         e.COIN_FOUND: 0,
-        e.OPPONENT_ELIMINATED: 0.5,
-        e.MOVED_LEFT: 0.1,
-        e.MOVED_RIGHT: 0.1,
-        e.MOVED_UP: 0.1,
-        e.MOVED_DOWN: 0.1
+        e.OPPONENT_ELIMINATED: 0,
+        e.MOVED_LEFT: -1,
+        e.MOVED_RIGHT: -1,
+        e.MOVED_UP: -1,
+        e.MOVED_DOWN: -1,
+
+        MOVED_TOWARDS_CENTER_6: 5,
+        MOVED_TOWARDS_CENTER_5: 6,
+        MOVED_TOWARDS_CENTER_4: 7,
+        MOVED_TOWARDS_CENTER_3: 10,
+        MOVED_TOWARDS_CENTER_2: 20,
+        MOVED_TOWARDS_CENTER_1: 30,
+        REACHED_CENTER: 50,
     }
     reward_sum = 0
     for event in events:
