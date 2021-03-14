@@ -29,7 +29,7 @@ def setup(self):
 
     self.n_features = 4*(VIEW_DIST*2+1)**2 + 1
     
-    if not os.path.isfile("my-saved-model_4linearlayers_400_200_200.pt"):
+    if not os.path.isfile("my-saved-model.pt"):
         self.logger.info("Setting up model from scratch.")
         self.model = LinearQNet(self.n_features, 6)
         nn.init.normal_(self.model.linear1.weight, mean=0, std=1.0/265)
@@ -44,7 +44,7 @@ def setup(self):
     else:
         self.logger.info("Loading model from saved state.")
         self.model = LinearQNet(self.n_features, 6)
-        self.model.load_state_dict(torch.load('my-saved-model_4linearlayers_400_200_200.pt'))
+        self.model.load_state_dict(torch.load('my-saved-model.pt'))
         if not self.train:
             self.model.eval()
 

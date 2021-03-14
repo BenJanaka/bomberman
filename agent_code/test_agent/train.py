@@ -167,7 +167,7 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     # else:
     #     self.logger.info("Loading model from saved state.")
     #     self.model = LinearQNet(self.n_features, 6)
-    #     self.model.load_state_dict(torch.load('my-saved-model_4linearlayers_400_200_200.pt'))
+    #     self.model.load_state_dict(torch.load('my-saved-model.pt'))
 
 def Action_To_One_Hot(action):
     one_hot = np.zeros(6)
