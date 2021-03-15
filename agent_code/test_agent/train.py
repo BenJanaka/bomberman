@@ -49,8 +49,13 @@ def setup_training(self):
     self.learning_rate = LEARNING_RATE
     self.exploration_prob = EXPLORATION_PROB
     self.gamma = 0.9
-    self.record = 0
+    self.record = float("-inf")
     self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
+    # Load the saved optimizer to continue training
+    if not self.overwrite:
+        self.optimizer.load_state_dict(self.saved_state['optimizer'])
+        self.record = self.saved_state['score']
+
     self.criterion = nn.SmoothL1Loss()
     # self.criterion = nn.MSELoss()
     self.transitions = deque(maxlen=TRANSITION_HISTORY_SIZE)
@@ -160,10 +165,13 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     # print("shape of states", states[1].shape)
 
     train_step(self, list(states), list(actions), list(next_states), list(rewards), last_game_state['self'][1])
-    final_score = last_game_state['self'][1]
-    if final_score >= self.record:
-        self.record = final_score
-    self.model.save()
+    #final_score = last_game_state['self'][1]
+    # Score of
+    score = np.sum(rewards)
+    if score >= self.record:
+        self.record = score
+        print("reached new highscore: {score}".format(score=score))
+        self.model.save(optimizer=self.optimizer, score=score)
     # else:
     #     self.logger.info("Loading model from saved state.")
     #     self.model = LinearQNet(self.n_features, 6)

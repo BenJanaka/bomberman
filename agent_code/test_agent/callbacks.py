@@ -11,7 +11,6 @@ VIEW_DIST = 3
 ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
 
 
-
 def setup(self):
     """
     Setup your code. This is called once when loading each agent.
@@ -26,27 +25,36 @@ def setup(self):
 
     :param self: This object is passed to all callbacks and you can set arbitrary values.
     """
+    self.overwrite = False
 
     self.n_features = 4*(VIEW_DIST*2+1)**2 + 1
     
-    if not os.path.isfile("my-saved-model.pt"):
+    if not os.path.isfile("my-saved-model.pt") or self.overwrite:
         self.logger.info("Setting up model from scratch.")
         self.model = LinearQNet(self.n_features, 6)
+
         nn.init.normal_(self.model.linear1.weight, mean=0, std=1.0/265)
         nn.init.normal_(self.model.linear2.weight, mean=0, std=1.0/265)
         nn.init.normal_(self.model.linear3.weight, mean=0, std=1.0/265)
         nn.init.normal_(self.model.linear4.weight, mean=0, std=1.0/265)
         nn.init.normal_(self.model.linear5.weight, mean=0, std=1.0 / 265)
 
+        self.model.train()
         # weights = np.random.rand(len(ACTIONS))
         # self.model = weights / weights.sum()
 
     else:
         self.logger.info("Loading model from saved state.")
         self.model = LinearQNet(self.n_features, 6)
-        self.model.load_state_dict(torch.load('my-saved-model.pt'))
-        if not self.train:
+        self.saved_state = self.model.load()
+        self.model.load_state_dict(self.saved_state['model'])
+        self.logger.info("Loaded highscore: {score}".format(score=self.saved_state['score']), )
+
+        if self.train:
+            self.model.train()
+        else:
             self.model.eval()
+
 
 
 def act(self, game_state: dict) -> str:

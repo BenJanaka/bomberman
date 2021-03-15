@@ -7,6 +7,9 @@ import os
 class LinearQNet(nn.Module):
     def __init__(self, input_size, output_size):
         super().__init__()
+
+        self.path = 'my-saved-model.pt'
+
         self.linear1 = nn.Linear(input_size, 300)
         self.linear2 = nn.Linear(300, 150)
         self.linear3 = nn.Linear(150, 80)
@@ -29,13 +32,16 @@ class LinearQNet(nn.Module):
         x = F.softmax(self.linear5(x), dim=0) # F.Softmax erlaubt nur outputs zwischen 0 und 1
         return x
 
-    def save(self):
-        path = 'my-saved-model.pt'
-        torch.save(self.state_dict(), path)
+    def save(self, optimizer, score):
+        state = {
+            'score': score,
+            'model': self.state_dict(),
+            'optimizer': optimizer.state_dict()
+        }
+        torch.save(state, self.path)
 
-    # def load(self, file_name='model.pth'):
-    #     model_folder_path = './model'
-    #     if not os.path.exists(model_folder_path):
-    #         raise Exception("Could not load the model. No Model found")
-    #     model.load_state_dict(torch.load(PATH))
-    #     model.eval()
+    def load(self) -> dict:
+        if not os.path.exists(self.path):
+            raise Exception("Could not load the model. No Model found")
+        state = torch.load(self.path)
+        return state
