@@ -29,7 +29,7 @@ def setup(self):
     """
     self.view_dist = VIEW_DIST
     self.n_features = N_FEATURES
-    self.overwrite = False
+    self.overwrite = True
 
     if not os.path.isfile("my-saved-model.pt") or self.overwrite:
         self.logger.info("Setting up model from scratch.")
