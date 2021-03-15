@@ -1,3 +1,5 @@
+import os
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -7,6 +9,9 @@ import sys
 class LinearQNet(nn.Module):
     def __init__(self, input_size, output_size):
         super().__init__()
+
+        self.path = 'my-saved-model.pt'
+
         self.linear1 = nn.Linear(input_size, 6, bias=False)
         self.linear2 = nn.Linear(6, 6, bias=False)
         self.linear3 = nn.Linear(6, 6, bias=False)

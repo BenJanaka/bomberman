@@ -64,7 +64,7 @@ def setup_training(self):
     self.closest_to_center = 7
     print(f'Started training session with learning rate {self.learning_rate} and exploration probability {self.exploration_prob}')
     print('At end of each round:')
-    print(' round  score  record of this session          loss')
+    print(' round  score  record of this session loss')
 
 
 def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_state: dict, events: List[str]):
