@@ -18,9 +18,9 @@ Transition = namedtuple('Transition',
 TRANSITION_HISTORY_SIZE = 1000  # keep only ... last transitions
 RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
 BATCH_SIZE = 100
-EXPLORATION_PROB = 0.3
+EXPLORATION_PROB = 0.2
 LEARNING_RATE = 0.002
-GAMMA = 0.6
+GAMMA = 0.8
 
 # Events
 PLACEHOLDER_EVENT = "PLACEHOLDER"
@@ -63,8 +63,7 @@ def setup_training(self):
     self.transitions = deque(maxlen=TRANSITION_HISTORY_SIZE)
     self.closest_to_center = 7
     print(f'Started training session with learning rate {self.learning_rate} and exploration probability {self.exploration_prob}')
-    print('At end of each round:')
-    print(' round  score  record of this session loss')
+    print(' round  score  record of this session          loss')
 
 
 def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_state: dict, events: List[str]):
@@ -106,9 +105,8 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
             events.append(PERFORMED_SAME_INVALID_ACTION_TWICE)
     # if agents moved towards center:
     # closest point is saved so that a repeated back and forth movement is prevented
-    self_coord = old_game_state['self'][3]
-    if abs(self_coord[0] - 8) < self.closest_to_center or abs(self_coord[1] - 8) < self.closest_to_center:
-        self.closest_to_center -= 1
+    self_coord = new_game_state['self'][3]
+    if abs(self_coord[0] - 8) < self.closest_to_center and abs(self_coord[1] - 8) < self.closest_to_center:
         if self.closest_to_center == 6:
             events.append(MOVED_TOWARDS_CENTER_6)
         elif self.closest_to_center == 5:
@@ -130,7 +128,6 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     self.transitions.append(t)
 
     state, action, next_state, reward = t.state, t.action, t.next_state, t.reward
-
     #if state is not None:
     train_step(self, [state], [action], [next_state], [reward], new_game_state['self'][1])
 
@@ -159,12 +156,6 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
         batch = self.transitions
 
     states, actions, next_states, rewards = zip(*batch)
-
-    # print("States at the end of a round: ")
-    # print(states[1:])
-    # print("Next-States at the end of a round: ")
-    # print(list(next_states[1:]))
-    # print("shape of states", states[1].shape)
 
     train_step(self, list(states), list(actions), list(next_states), list(rewards), last_game_state['self'][1])
     #final_score = last_game_state['self'][1]
@@ -283,8 +274,8 @@ def reward_from_events(self, events: List[str]) -> int:
     certain behavior.
     """
     game_rewards = {
-        e.COIN_COLLECTED: 50,
-        COLLECTED_THIRD_OR_HIGHER_COIN: 0,
+        e.COIN_COLLECTED: 1000,
+        COLLECTED_THIRD_OR_HIGHER_COIN: 500,
         e.KILLED_OPPONENT: 200,
         SURVIVED_OWN_BOMB: 20,
 
@@ -305,13 +296,13 @@ def reward_from_events(self, events: List[str]) -> int:
         e.MOVED_UP: 5,
         e.MOVED_DOWN: 5,
 
-        # MOVED_TOWARDS_CENTER_6: 5,
-        # MOVED_TOWARDS_CENTER_5: 6,
-        # MOVED_TOWARDS_CENTER_4: 7,
-        # MOVED_TOWARDS_CENTER_3: 10,
-        # MOVED_TOWARDS_CENTER_2: 20,
-        # MOVED_TOWARDS_CENTER_1: 30,
-        # REACHED_CENTER: 50,
+        MOVED_TOWARDS_CENTER_6: 10,
+        MOVED_TOWARDS_CENTER_5: 11,
+        MOVED_TOWARDS_CENTER_4: 12,
+        MOVED_TOWARDS_CENTER_3: 13,
+        MOVED_TOWARDS_CENTER_2: 14,
+        MOVED_TOWARDS_CENTER_1: 15,
+        REACHED_CENTER: 16,
     }
 
     reward_sum = 0

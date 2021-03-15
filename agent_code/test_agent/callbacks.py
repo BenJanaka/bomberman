@@ -72,14 +72,12 @@ def act(self, game_state: dict) -> str:
     if self.train and random.random() < self.exploration_prob:
         self.logger.debug("Choosing action purely at random.")
         # 80%: walk in any direction. 10% wait. 10% bomb.
-        return np.random.choice(ACTIONS, p=[.2, .2, .2, .2, .195, .005])
+        return np.random.choice(ACTIONS, p=[.2, .2, .2, .2, .2, 0])
     else:
         state = torch.tensor(state_to_features(self, game_state), dtype=torch.float)
         prediction = self.model(state)
         action = ACTIONS[torch.argmax(prediction).item()]
         self.logger.debug("Querying model for action: {action}".format(action=action))
-        print(prediction)
-        print(action)
         return action
 
         # return np.random.choice(ACTIONS, p=self.model)
