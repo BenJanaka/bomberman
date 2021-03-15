@@ -173,8 +173,6 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
             if is_end_of_game:
                 game_count = game_count + 1
             if idx < 0:
-                # to few games in the transitions
-                score = float("-inf")
                 break
             score = score + self.transitions[idx].reward
             idx = idx - 1
