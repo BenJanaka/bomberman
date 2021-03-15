@@ -13,7 +13,6 @@ N_FEATURES = 2 * (VIEW_DIST * 2 + 1) ** 2
 ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
 
 
-
 def setup(self):
     """
     Setup your code. This is called once when loading each agent.
@@ -30,8 +29,9 @@ def setup(self):
     """
     self.view_dist = VIEW_DIST
     self.n_features = N_FEATURES
-    
-    if not os.path.isfile("my-saved-model.pt"):
+    self.overwrite = False
+
+    if not os.path.isfile("my-saved-model.pt") or self.overwrite:
         self.logger.info("Setting up model from scratch.")
         self.model = LinearQNet(self.n_features, 6)
         for layer in self.model.children():
@@ -39,15 +39,22 @@ def setup(self):
                 # layer.bias.data.fill_(0.)
                 nn.init.normal_(layer.weight, mean=0., std=1./6)
 
+        self.model.train()
         # weights = np.random.rand(len(ACTIONS))
         # self.model = weights / weights.sum()
 
     else:
         self.logger.info("Loading model from saved state.")
         self.model = LinearQNet(self.n_features, 6)
-        self.model.load_state_dict(torch.load('my-saved-model.pt'))
-        if not self.train:
+        self.saved_state = self.model.load()
+        self.model.load_state_dict(self.saved_state['model'])
+        self.logger.info("Loaded highscore: {score}".format(score=self.saved_state['score']), )
+
+        if self.train:
+            self.model.train()
+        else:
             self.model.eval()
+
 
 
 def act(self, game_state: dict) -> str:
@@ -72,6 +79,7 @@ def act(self, game_state: dict) -> str:
         action = ACTIONS[torch.argmax(prediction).item()]
         self.logger.debug("Querying model for action: {action}".format(action=action))
         return action
+
         # return np.random.choice(ACTIONS, p=self.model)
 
 def state_to_features(self, game_state):

@@ -51,7 +51,13 @@ def setup_training(self):
     self.exploration_prob = EXPLORATION_PROB
     self.gamma = GAMMA
     self.record = 0
+    self.record = float("-inf")
     self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
+    # Load the saved optimizer to continue training
+    if not self.overwrite:
+        self.optimizer.load_state_dict(self.saved_state['optimizer'])
+        self.record = self.saved_state['score']
+
     self.criterion = nn.SmoothL1Loss()
     # self.criterion = nn.MSELoss()
     self.transitions = deque(maxlen=TRANSITION_HISTORY_SIZE)
@@ -152,10 +158,33 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     states, actions, next_states, rewards = zip(*batch)
 
     train_step(self, list(states), list(actions), list(next_states), list(rewards), last_game_state['self'][1])
-    final_score = last_game_state['self'][1]
-    if final_score >= self.record:
-        self.record = final_score
-    self.model.save()
+    #final_score = last_game_state['self'][1]
+    # Score of
+    # score = np.sum(rewards)
+    games_to_average = 10
+    if len(self.transitions) > games_to_average:
+        # loop through transitions back to front
+        idx = len(self.transitions) - 2
+        score = 0
+        game_count = 0
+        # Take the average of the last 50 games as the score of our model.
+        while game_count < games_to_average:
+            is_end_of_game = self.transitions[idx].next_state is None
+            if is_end_of_game:
+                game_count = game_count + 1
+            if idx < 0:
+                # to few games in the transitions
+                score = float("-inf")
+                break
+            score = score + self.transitions[idx].reward
+            idx = idx - 1
+        score = score / game_count
+        print("score", score)
+        if score >= self.record:
+            self.record = score
+            print("reached new highscore: {score}".format(score=score))
+            self.model.save(optimizer=self.optimizer, score=score)
+
     # else:
     #     self.logger.info("Loading model from saved state.")
     #     self.model = LinearQNet(self.n_features, 6)
@@ -227,7 +256,7 @@ def train_step(self, state, action, next_state, reward, score):
     # f'result: {value:{width}.{precision}}'
     # right aligned text: >
     sys.stdout.write(f"{str(self.round):>6} {str(score):>6} {str(self.record):>23} "
-                     + f"{loss.item():>13.5f}")
+                     + f"{loss.item():>13.5f} ")
 
     # Backward pass: compute gradient of the loss with respect to model
     # parameters

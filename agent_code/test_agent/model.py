@@ -30,13 +30,16 @@ class LinearQNet(nn.Module):
 
         return x # output must be in same order of mag as rewards -> no activation for ouput
 
-    def save(self):
-        path = 'my-saved-model.pt'
-        torch.save(self.state_dict(), path)
+    def save(self, optimizer, score):
+        state = {
+            'score': score,
+            'model': self.state_dict(),
+            'optimizer': optimizer.state_dict()
+        }
+        torch.save(state, self.path)
 
-    # def load(self, file_name='model.pth'):
-    #     model_folder_path = './model'
-    #     if not os.path.exists(model_folder_path):
-    #         raise Exception("Could not load the model. No Model found")
-    #     model.load_state_dict(torch.load(PATH))
-    #     model.eval()
+    def load(self) -> dict:
+        if not os.path.exists(self.path):
+            raise Exception("Could not load the model. No Model found")
+        state = torch.load(self.path)
+        return state
