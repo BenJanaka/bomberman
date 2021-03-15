@@ -18,8 +18,9 @@ Transition = namedtuple('Transition',
 TRANSITION_HISTORY_SIZE = 1000  # keep only ... last transitions
 RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
 BATCH_SIZE = 100
-EXPLORATION_PROB = 0.15
-LEARNING_RATE = 0.0005
+EXPLORATION_PROB = 0.3
+LEARNING_RATE = 0.002
+GAMMA = 0.6
 
 # Events
 PLACEHOLDER_EVENT = "PLACEHOLDER"
@@ -48,7 +49,8 @@ def setup_training(self):
     # (s, a, r, s')
     self.learning_rate = LEARNING_RATE
     self.exploration_prob = EXPLORATION_PROB
-    self.gamma = 0.9
+    self.gamma = GAMMA
+    self.record = 0
     self.record = float("-inf")
     self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
     # Load the saved optimizer to continue training
@@ -87,7 +89,6 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     # in the first step, old state is None
     if old_game_state is None:
         return
-
     self.round = new_game_state["round"]
     self.step = new_game_state["step"]
     self.logger.debug(f'Encountered game event(s) {", ".join(map(repr, events))} in step {new_game_state["step"]}')
@@ -129,6 +130,7 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     self.transitions.append(t)
 
     state, action, next_state, reward = t.state, t.action, t.next_state, t.reward
+
     #if state is not None:
     train_step(self, [state], [action], [next_state], [reward], new_game_state['self'][1])
 
@@ -209,6 +211,7 @@ def Action_To_One_Hot(action):
 
 
 def train_step(self, state, action, next_state, reward, score):
+
     # print("reward before creating tensor", reward)
     # print("shape of transitions", self.transitions.count)
     # if state is None:
@@ -226,6 +229,7 @@ def train_step(self, state, action, next_state, reward, score):
 
     # 1: predicted Q values: expected reward of current state and action with dimension 6 (# actions)
     Q_pred = self.model(state)
+    # print("Q_pred", Q_pred.data)
     Q = Q_pred.clone()
 
     for idx in range(len(reward)):
@@ -242,6 +246,8 @@ def train_step(self, state, action, next_state, reward, score):
             # Q_new = Q_pred + self.learning_rate * (reward[idx] + self.gamma * torch.max(self.model(next_state[idx]) - Q_pred))
         Q[idx][torch.argmax(action[idx]).item()] = Q_new
 
+
+
     # 2: Q_new = r + y * max(next_predicted Q value) -> only do this if not done
     # Q_pred.clone()
     # preds[argmax(action)] = Q_new
@@ -253,7 +259,7 @@ def train_step(self, state, action, next_state, reward, score):
     # is called. Checkout docs of torch.autograd.backward for more details.
     self.optimizer.zero_grad()
     loss = self.criterion(Q, Q_pred)
-
+    # print("Q", Q.data)
     self.logger.info("Current Loss: {loss}".format(loss=loss))
     sys.stdout.write('\r')
     # f'result: {value:{width}.{precision}}'
@@ -278,14 +284,14 @@ def reward_from_events(self, events: List[str]) -> int:
     """
     game_rewards = {
         e.COIN_COLLECTED: 50,
-        COLLECTED_THIRD_OR_HIGHER_COIN: 100,
+        COLLECTED_THIRD_OR_HIGHER_COIN: 0,
         e.KILLED_OPPONENT: 200,
         SURVIVED_OWN_BOMB: 20,
 
         e.CRATE_DESTROYED: 5,
         e.KILLED_SELF: -50,
         e.GOT_KILLED: -10,
-        e.INVALID_ACTION: -10,
+        e.INVALID_ACTION: -5,
         PERFORMED_SAME_INVALID_ACTION_TWICE: -10,
         e.SURVIVED_ROUND: 0,
 
@@ -294,19 +300,20 @@ def reward_from_events(self, events: List[str]) -> int:
         e.BOMB_EXPLODED: 0,
         e.COIN_FOUND: 0,
         e.OPPONENT_ELIMINATED: 0,
-        e.MOVED_LEFT: -1,
-        e.MOVED_RIGHT: -1,
-        e.MOVED_UP: -1,
-        e.MOVED_DOWN: -1,
+        e.MOVED_LEFT: 5,
+        e.MOVED_RIGHT: 5,
+        e.MOVED_UP: 5,
+        e.MOVED_DOWN: 5,
 
-        MOVED_TOWARDS_CENTER_6: 5,
-        MOVED_TOWARDS_CENTER_5: 6,
-        MOVED_TOWARDS_CENTER_4: 7,
-        MOVED_TOWARDS_CENTER_3: 10,
-        MOVED_TOWARDS_CENTER_2: 20,
-        MOVED_TOWARDS_CENTER_1: 30,
-        REACHED_CENTER: 50,
+        # MOVED_TOWARDS_CENTER_6: 5,
+        # MOVED_TOWARDS_CENTER_5: 6,
+        # MOVED_TOWARDS_CENTER_4: 7,
+        # MOVED_TOWARDS_CENTER_3: 10,
+        # MOVED_TOWARDS_CENTER_2: 20,
+        # MOVED_TOWARDS_CENTER_1: 30,
+        # REACHED_CENTER: 50,
     }
+
     reward_sum = 0
     for event in events:
         if event in game_rewards:

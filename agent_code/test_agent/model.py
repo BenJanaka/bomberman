@@ -1,36 +1,34 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import os
+import sys
 
 
 class LinearQNet(nn.Module):
     def __init__(self, input_size, output_size):
         super().__init__()
-
-        self.path = 'my-saved-model.pt'
-
-        self.linear1 = nn.Linear(input_size, 300)
-        self.linear2 = nn.Linear(300, 150)
-        self.linear3 = nn.Linear(150, 80)
-        self.linear4 = nn.Linear(80, 40)
-        self.linear5 = nn.Linear(40, output_size)
-        self.dropout = nn.Dropout(0.25)
+        self.linear1 = nn.Linear(input_size, 6, bias=False)
+        self.linear2 = nn.Linear(6, 6, bias=False)
+        self.linear3 = nn.Linear(6, 6, bias=False)
+        self.linear4 = nn.Linear(6, 6, bias=False)
+        self.linear5 = nn.Linear(6, output_size, bias=False)
+        self.dropout = nn.Dropout(0.)
         # dropout example:
         # https://wandb.ai/authors/ayusht/reports/Dropout-in-PyTorch-An-Example--VmlldzoxNTgwOTE
 
     def forward(self, x):
         # norm?
         x = torch.sigmoid(self.linear1(x))
-        x = self.dropout(x)
+        # x = self.dropout(x)
         x = torch.sigmoid(self.linear2(x))
-        x = self.dropout(x)
-        x = torch.sigmoid(self.linear3(x))
-        x = self.dropout(x)
-        x = torch.sigmoid(self.linear4(x))
-        x = self.dropout(x)
-        x = F.softmax(self.linear5(x), dim=0) # F.Softmax erlaubt nur outputs zwischen 0 und 1
-        return x
+        # x = self.dropout(x)
+        # x = torch.relu(self.linear3(x))
+        # x = self.dropout(x)
+        # x = torch.sigmoid(self.linear4(x))
+        # x = self.dropout(x)
+        x = self.linear5(x)
+
+        return x # output must be in same order of mag as rewards -> no activation for ouput
 
     def save(self, optimizer, score):
         state = {

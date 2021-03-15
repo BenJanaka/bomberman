@@ -7,7 +7,9 @@ import torch, torch.nn as nn
 
 import numpy as np
 
-VIEW_DIST = 3
+VIEW_DIST = 2
+# N_FEATURES = 4*(VIEW_DIST*2+1)**2 + 1
+N_FEATURES = 2 * (VIEW_DIST * 2 + 1) ** 2
 ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
 
 
@@ -25,19 +27,17 @@ def setup(self):
 
     :param self: This object is passed to all callbacks and you can set arbitrary values.
     """
+    self.view_dist = VIEW_DIST
+    self.n_features = N_FEATURES
     self.overwrite = False
 
-    self.n_features = 4*(VIEW_DIST*2+1)**2 + 1
-    
     if not os.path.isfile("my-saved-model.pt") or self.overwrite:
         self.logger.info("Setting up model from scratch.")
         self.model = LinearQNet(self.n_features, 6)
-
-        nn.init.normal_(self.model.linear1.weight, mean=0, std=1.0/265)
-        nn.init.normal_(self.model.linear2.weight, mean=0, std=1.0/265)
-        nn.init.normal_(self.model.linear3.weight, mean=0, std=1.0/265)
-        nn.init.normal_(self.model.linear4.weight, mean=0, std=1.0/265)
-        nn.init.normal_(self.model.linear5.weight, mean=0, std=1.0 / 265)
+        for layer in self.model.children():
+            if isinstance(layer, nn.Linear):
+                # layer.bias.data.fill_(0.)
+                nn.init.normal_(layer.weight, mean=0., std=1./6)
 
         self.model.train()
         # weights = np.random.rand(len(ACTIONS))
@@ -72,12 +72,14 @@ def act(self, game_state: dict) -> str:
     if self.train and random.random() < self.exploration_prob:
         self.logger.debug("Choosing action purely at random.")
         # 80%: walk in any direction. 10% wait. 10% bomb.
-        return np.random.choice(ACTIONS, p=[.2, .2, .2, .2, .15, .05])
+        return np.random.choice(ACTIONS, p=[.2, .2, .2, .2, .195, .005])
     else:
         state = torch.tensor(state_to_features(self, game_state), dtype=torch.float)
         prediction = self.model(state)
         action = ACTIONS[torch.argmax(prediction).item()]
         self.logger.debug("Querying model for action: {action}".format(action=action))
+        print(prediction)
+        print(action)
         return action
 
         # return np.random.choice(ACTIONS, p=self.model)
@@ -87,18 +89,16 @@ def state_to_features(self, game_state):
         return np.zeros(self.n_features)
 
     self_coord = list(game_state["self"][3])
-    self_coord = [1,1]
-    # Walls 5x5 around our agent: view_dist = 2
-    view_dist = VIEW_DIST
-    shift = view_dist-1
-    left = self_coord[0]+shift - view_dist
-    right = self_coord[0]+shift + view_dist
-    bottom = self_coord[1]+shift + view_dist
-    top = self_coord[1]+shift - view_dist
+    # Walls 5x5 around our agent: self.view_dist = 2
+    shift = self.view_dist-1
+    left = self_coord[0]+shift - self.view_dist
+    right = self_coord[0]+shift + self.view_dist
+    bottom = self_coord[1]+shift + self.view_dist
+    top = self_coord[1]+shift - self.view_dist
 
-    padded_field = np.pad(game_state['field'], view_dist-1, constant_values=-1)
+    padded_field = np.pad(game_state['field'], self.view_dist-1, constant_values=-1)
     walls = padded_field[left:right+1, top:bottom+1]
-    padded_explosion_map = np.pad(game_state['explosion_map'], view_dist-1, constant_values=-1)
+    padded_explosion_map = np.pad(game_state['explosion_map'], self.view_dist-1, constant_values=-1)
     explosions = padded_explosion_map[left:right + 1, top:bottom + 1]
 
     coins = np.zeros(np.shape(padded_field))
@@ -116,7 +116,8 @@ def state_to_features(self, game_state):
 
     output = np.stack([walls, explosions, coins, bombs]).flatten()
     output = np.concatenate((output, [bomb_ready]))
-    return output # list of length 51
+    # return output # list of length 51
+    return np.stack([walls, coins]).flatten()
 
 
 def state_to_features_(self, game_state: dict) -> np.array:
