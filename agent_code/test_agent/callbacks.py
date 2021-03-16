@@ -4,12 +4,10 @@ import random
 import torch
 from .model import LinearQNet
 import torch, torch.nn as nn
-
 import numpy as np
 
-VIEW_DIST = 2
-# N_FEATURES = 4*(VIEW_DIST*2+1)**2 + 1
-N_FEATURES = 2 * (VIEW_DIST * 2 + 1) ** 2
+VIEW_DIST = 8
+N_FEATURES = 51
 ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
 
 
@@ -29,32 +27,28 @@ def setup(self):
     """
     self.view_dist = VIEW_DIST
     self.n_features = N_FEATURES
-    self.overwrite = True
+    self.overwrite = False
+    self.path = "my-saved-model.pt"
 
-    if not os.path.isfile("my-saved-model.pt") or self.overwrite:
+    if not os.path.isfile(self.path) or self.overwrite:
         self.logger.info("Setting up model from scratch.")
         self.model = LinearQNet(self.n_features, 6)
         for layer in self.model.children():
-            if isinstance(layer, nn.Linear):
-                # layer.bias.data.fill_(0.)
-                nn.init.normal_(layer.weight, mean=0., std=1./6)
-
-        self.model.train()
-        # weights = np.random.rand(len(ACTIONS))
-        # self.model = weights / weights.sum()
+            if isinstance(layer, nn.Linear) or isinstance(layer, nn.Conv2d):
+                layer.bias.data.fill_(0.)
+                nn.init.normal_(layer.weight, mean=0., std=1./100)
 
     else:
         self.logger.info("Loading model from saved state.")
         self.model = LinearQNet(self.n_features, 6)
-        self.saved_state = self.model.load()
+        self.saved_state = self.model.load(self.path)
         self.model.load_state_dict(self.saved_state['model'])
         self.logger.info("Loaded highscore: {score}".format(score=self.saved_state['score']), )
 
-        if self.train:
-            self.model.train()
-        else:
-            self.model.eval()
-
+    if self.train:
+        self.model.train()
+    else:
+        self.model.eval()
 
 
 def act(self, game_state: dict) -> str:
@@ -71,7 +65,6 @@ def act(self, game_state: dict) -> str:
     # Exploration vs exploitation
     if self.train and random.random() < self.exploration_prob:
         self.logger.debug("Choosing action purely at random.")
-        # 80%: walk in any direction. 10% wait. 10% bomb.
         return np.random.choice(ACTIONS, p=[.2, .2, .2, .2, .2, 0])
     else:
         state = torch.tensor(state_to_features(self, game_state), dtype=torch.float)
@@ -80,11 +73,10 @@ def act(self, game_state: dict) -> str:
         self.logger.debug("Querying model for action: {action}".format(action=action))
         return action
 
-        # return np.random.choice(ACTIONS, p=self.model)
 
 def state_to_features(self, game_state):
-    if game_state is None:
-        return np.zeros(self.n_features)
+    # if game_state is None:
+    #     return np.zeros(self.n_features)
 
     self_coord = list(game_state["self"][3])
     # Walls 5x5 around our agent: self.view_dist = 2
@@ -94,9 +86,9 @@ def state_to_features(self, game_state):
     bottom = self_coord[1]+shift + self.view_dist
     top = self_coord[1]+shift - self.view_dist
 
-    padded_field = np.pad(game_state['field'], self.view_dist-1, constant_values=-1)
+    padded_field = np.pad(game_state['field'], self.view_dist-1, constant_values=0)
     walls = padded_field[left:right+1, top:bottom+1]
-    padded_explosion_map = np.pad(game_state['explosion_map'], self.view_dist-1, constant_values=-1)
+    padded_explosion_map = np.pad(game_state['explosion_map'], self.view_dist-1, constant_values=0)
     explosions = padded_explosion_map[left:right + 1, top:bottom + 1]
 
     coins = np.zeros(np.shape(padded_field))
@@ -115,7 +107,7 @@ def state_to_features(self, game_state):
     output = np.stack([walls, explosions, coins, bombs]).flatten()
     output = np.concatenate((output, [bomb_ready]))
     # return output # list of length 51
-    return np.stack([walls, coins]).flatten()
+    return np.stack([walls, coins])
 
 
 def state_to_features_(self, game_state: dict) -> np.array:
@@ -159,7 +151,7 @@ def state_to_features_(self, game_state: dict) -> np.array:
     walls_pxp = list(game_state['field'][own_agent[1]-1:own_agent[1]+2, own_agent[2]-1:own_agent[2]+2].flatten())
     explosions_pxp = list(game_state['explosion_map'][own_agent[1]-1:own_agent[1]+2, own_agent[2]-1:own_agent[2]+2].flatten())
     # list of coins where each coins coordinate is saved.
-    coin_list = [-1] * 9 * 2
+    coin_dist = [-1] * 9 * 2
     # List of bombs where each bombs coordinate and its countdown in listed.
     bomb_list = [-1] * 3 * 4  # 3 * 9
 
@@ -173,9 +165,9 @@ def state_to_features_(self, game_state: dict) -> np.array:
         distance = np.linalg.norm(own_pos - bomb_pos)
         distances.append(distance)
 
-    # Add each coin to the output list: coin_list
+    # Add each coin to the output list: coin_dist
     for idx, coin in enumerate(game_state['coins']):
-        coin_list[idx * 2: idx * 2 + 2] = list(coin)
+        coin_dist[idx * 2: idx * 2 + 2] = list(own_pos - np.array(coin))
 
     # Add all bombs to the output list: bomb_list
     for idx, bomb in enumerate(state_bombs):
@@ -183,10 +175,10 @@ def state_to_features_(self, game_state: dict) -> np.array:
         # replace slice by actual values
         bomb_list[idx * 3:idx * 3 + 3] = list(bomb[0]) + [bomb[1]]
 
-    output = np.array(own_agent + walls_pxp + explosions_pxp + coin_list + bomb_list, dtype=np.float32)
+    # TODO: coordinates relative to agent + opponents
+    # output = np.array(walls_pxp + explosions_pxp + coin_dist + bomb_list + own_agent, dtype=np.float32)
+    output = np.array(walls_pxp + coin_dist + list(np.zeros(24)), dtype=np.float32)
     return output # list of length 51
-
-
 
 
 def sortByDistance(element, distances):

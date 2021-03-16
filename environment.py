@@ -333,12 +333,12 @@ class BombeRLeWorld(GenericWorld):
         # Starting positions
         start_positions = [(1, 1), (1, s.ROWS - 2), (s.COLS - 2, 1), (s.COLS - 2, s.ROWS - 2)]
         random.shuffle(start_positions)
-        # Liane
-        # while True:
-        #     (x, y) = np.random.randint(1, 16, 2)
-        #     if self.arena[x, y] == 0:
-        #         start_positions[-1] = (x, y)
-        #         break
+        # Liane: random start position
+        while True:
+            (x, y) = np.random.randint(1, 16, 2)
+            if self.arena[x, y] == 0:
+                start_positions[-1] = (x, y)
+                break
 
         for (x, y) in start_positions:
             for (xx, yy) in [(x, y), (x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)]:
@@ -363,7 +363,7 @@ class BombeRLeWorld(GenericWorld):
                 n_crates = (self.arena[1 + 5 * i:6 + 5 * i, 1 + 5 * j:6 + 5 * j] == 1).sum()
                 while True:
                     x, y = np.random.randint(1 + 5 * i, 6 + 5 * i), np.random.randint(1 + 5 * j, 6 + 5 * j)
-                    # Liane
+                    # Liane: coins only in inner parts of the field
                     if x == 1 or x == 15 or y == 1 or y == 15 or (x, y) == start_positions[0]:
                         continue
                     if n_crates == 0 and self.arena[x, y] == 0:
