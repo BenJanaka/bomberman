@@ -6,8 +6,6 @@ from .model import LinearQNet
 import torch, torch.nn as nn
 import numpy as np
 
-VIEW_DIST = 8
-N_FEATURES = 51
 ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
 
 
@@ -25,14 +23,12 @@ def setup(self):
 
     :param self: This object is passed to all callbacks and you can set arbitrary values.
     """
-    self.view_dist = VIEW_DIST
-    self.n_features = N_FEATURES
     self.overwrite = False
     self.path = "my-saved-model.pt"
 
     if not os.path.isfile(self.path) or self.overwrite:
         self.logger.info("Setting up model from scratch.")
-        self.model = LinearQNet(self.n_features, 6)
+        self.model = LinearQNet(6)
         for layer in self.model.children():
             if isinstance(layer, nn.Linear) or isinstance(layer, nn.Conv2d):
                 layer.bias.data.fill_(0.)
@@ -40,7 +36,7 @@ def setup(self):
 
     else:
         self.logger.info("Loading model from saved state.")
-        self.model = LinearQNet(self.n_features, 6)
+        self.model = LinearQNet(6)
         self.saved_state = self.model.load(self.path)
         self.model.load_state_dict(self.saved_state['model'])
         self.logger.info("Loaded highscore: {score}".format(score=self.saved_state['score']), )
@@ -60,8 +56,8 @@ def act(self, game_state: dict) -> str:
     :param game_state: The dictionary that describes everything on the board.
     :return: The action to take as a string.
     """
-    if game_state is None:
-        return "WAIT"
+    assert game_state is not None, "Game state is None"
+
     # Exploration vs exploitation
     if self.train and random.random() < self.exploration_prob:
         self.logger.debug("Choosing action purely at random.")
@@ -75,39 +71,28 @@ def act(self, game_state: dict) -> str:
 
 
 def state_to_features(self, game_state):
-    # if game_state is None:
-    #     return np.zeros(self.n_features)
+    assert game_state is not None, "Game state is None"
 
-    self_coord = list(game_state["self"][3])
-    # Walls 5x5 around our agent: self.view_dist = 2
-    shift = self.view_dist-1
-    left = self_coord[0]+shift - self.view_dist
-    right = self_coord[0]+shift + self.view_dist
-    bottom = self_coord[1]+shift + self.view_dist
-    top = self_coord[1]+shift - self.view_dist
+    field = game_state['field']
+    # TODO: danger
+    explosions = game_state['explosion_map']
+    # bombs = np.zeros(np.shape(padded_field))
+    # for bomb in game_state["bombs"]:
+    #     bombs[bomb[0][0]+shift, bomb[0][1]+shift] = bomb[1]
+    # bombs = bombs[left:right+1, top:bottom+1]
 
-    padded_field = np.pad(game_state['field'], self.view_dist-1, constant_values=0)
-    walls = padded_field[left:right+1, top:bottom+1]
-    padded_explosion_map = np.pad(game_state['explosion_map'], self.view_dist-1, constant_values=0)
-    explosions = padded_explosion_map[left:right + 1, top:bottom + 1]
-
-    coins = np.zeros(np.shape(padded_field))
+    players_coins = np.zeros(np.shape(field))
     for coin in game_state["coins"]:
-        coins[coin[0]+shift, coin[1]+shift] = 1
-    coins = coins[left:right+1, top:bottom+1]
-
-    bombs = np.zeros(np.shape(padded_field))
-    for bomb in game_state["bombs"]:
-        bombs[bomb[0][0]+shift, bomb[0][1]+shift] = bomb[1]
-    bombs = bombs[left:right+1, top:bottom+1]
-
-    # TODO opponents
+        players_coins[coin[0], coin[1]] = 1
+    self_coord = game_state["self"][3]
     bomb_ready = int(game_state['self'][2])
+    players_coins[self_coord] = -50 + 5 * int(bomb_ready)
+    for opponent in game_state['others']:
+        coord = opponent[3]
+        can_drop_bomb = opponent[2]
+        players_coins[coord] = 50 - 5 * int(can_drop_bomb)
 
-    output = np.stack([walls, explosions, coins, bombs]).flatten()
-    output = np.concatenate((output, [bomb_ready]))
-    # return output # list of length 51
-    return np.stack([walls, coins])
+    return np.stack([field, players_coins])
 
 
 def state_to_features_(self, game_state: dict) -> np.array:
@@ -143,8 +128,7 @@ def state_to_features_(self, game_state: dict) -> np.array:
     #  For the bombs, 4 x 3: for every bomb coordinate and countdown. Fill with (-1, -1, 0) as filler
     #  33 + 2p^2
     # This is the dict before the game begins and after it ends
-    if game_state is None:
-        return np.zeros(self.n_features)
+    assert game_state is not None, "Game state is None"
 
     own_agent = [game_state["self"][2]] + list(game_state["self"][3])
     # Walls and explosion sub-fields. 3x3 around our agent

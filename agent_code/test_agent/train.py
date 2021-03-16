@@ -9,6 +9,7 @@ import sys
 import os
 from .callbacks import state_to_features
 from .rewards import append_events, reward_from_events
+from .plot import plot, update_plot_data
 
 # This is only an example!
 Transition = namedtuple('Transition',
@@ -18,9 +19,9 @@ Transition = namedtuple('Transition',
 TRANSITION_HISTORY_SIZE = 1000  # keep only ... last transitions
 RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
 BATCH_SIZE = 100
-EXPLORATION_PROB = 0.3
-LEARNING_RATE = 0.005
-GAMMA = 0.8
+EXPLORATION_PROB = 0.8
+LEARNING_RATE = 0.001
+GAMMA = 0.1
 
 actions_dic = {'UP': 0, 'RIGHT': 1, 'DOWN': 2, 'LEFT': 3, 'WAIT': 4, 'BOMB': 5}
 
@@ -40,13 +41,15 @@ def setup_training(self):
     self.gamma = GAMMA
     self.high_score = float("-inf")
     self.closest_to_center = 7
+    self.reward_sum = 0
+    self.plot_data = {'rewards': [], 'losses': [], 'scores':[]}
 
     self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
     # Load the saved optimizer to continue training
     if not self.overwrite and os.path.isfile(self.path):
         self.optimizer.load_state_dict(self.saved_state['optimizer'])
         self.high_score = self.saved_state['score']
-        print('Loaded model from:', self.path)
+        print('Resumed training of loaded model from:', self.path)
     else:
         print('Started training session from scratch')
     print(f'with learning rate {self.learning_rate} and exploration probability {self.exploration_prob}')
@@ -92,6 +95,7 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     self.transitions.append(t)
 
     state, action, next_state, reward = t.state, t.action, t.next_state, t.reward
+    self.reward_sum += reward
     train_step(self, [state], [action], [next_state], [reward])
 
 
@@ -120,7 +124,7 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
 
     states, actions, next_states, rewards = zip(*batch)
 
-    train_step(self, list(states), list(actions), list(next_states), list(rewards))
+    self.loss = train_step(self, list(states), list(actions), list(next_states), list(rewards))
 
     # save_model_if_mean_score_increased(self)
 
@@ -128,6 +132,10 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
         self.high_score = self.score
     self.model.save(self.optimizer, self.high_score, self.path)
     self.closest_to_center = 7
+    update_plot_data(self)
+    if self.round % 10 == 0:
+        plot(self, state_to_features(self, last_game_state))
+    self.reward_sum = 0
 
 
 def train_step(self, state, action, next_state, reward):
@@ -136,7 +144,6 @@ def train_step(self, state, action, next_state, reward):
     none_indices = [i for i in range(len(next_state)) if next_state[i] is None]
     done = np.zeros(len(next_state))
     done[none_indices] = True
-    # next_state = [np.zeros(self.n_features) if v is None else v for v in next_state]
     next_state = [np.zeros(state[0].shape) if v is None else v for v in next_state]
     next_state = torch.tensor(next_state, dtype=torch.float)
     actions_one_hot = list(map(Action_To_One_Hot, action))
@@ -164,15 +171,15 @@ def train_step(self, state, action, next_state, reward):
     loss = self.criterion(Q, Q_pred)
     self.logger.info("Current Loss: {loss}".format(loss=loss))
 
-    if len(state) > 1: # if round is finished
-        sys.stdout.write('\r')
-        sys.stdout.write(f"{str(self.round):>6} {str(self.score):>6} {str(self.high_score):>11.3} "
-                         + f"{loss.item():>13.5f} ")
+    sys.stdout.write('\r')
+    sys.stdout.write(f"{str(self.round):>6} {str(self.score):>6} {str(self.high_score):>11.3} "
+        + f"{loss.item():>13.5f} ")
 
     # Backward pass: compute gradient of the loss with respect to model parameters
     loss.backward()
     # Calling the step function on an Optimizer makes an update to its parameters
     self.optimizer.step()
+    return loss
 
 
 def Action_To_One_Hot(action):
@@ -186,6 +193,7 @@ def Action_To_One_Hot(action):
 
 
 def save_model_if_mean_score_increased(self):
+    # besser wenn alles gespeichert wird
     # score as sum of rewards
     games_to_average = 10
     if len(self.transitions) > games_to_average:
