@@ -56,15 +56,15 @@ def reward_from_events(self, events):
         e.SURVIVED_ROUND: 0,
         e.OPPONENT_ELIMINATED: 0,
 
-        e.BOMB_DROPPED: 30,
+        e.BOMB_DROPPED: 10,
         e.BOMB_EXPLODED: 0,
         e.KILLED_SELF: -80,
         e.KILLED_OPPONENT: 200,
-        SURVIVED_OWN_BOMB: 70,
+        SURVIVED_OWN_BOMB: 30,
         e.CRATE_DESTROYED: 80,
         e.COIN_FOUND: 0,
 
-        e.COIN_COLLECTED: 80,
+        e.COIN_COLLECTED: 100,
         COLLECTED_THIRD_OR_HIGHER_COIN: 0,
 
         e.INVALID_ACTION: -10,

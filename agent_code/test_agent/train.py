@@ -9,7 +9,7 @@ import sys
 import os
 from .callbacks import state_to_features
 from .rewards import append_events, reward_from_events
-from .plot import plot, update_plot_data
+from .plot import plot, update_plot_data, init_plot_data
 
 # This is only an example!
 Transition = namedtuple('Transition',
@@ -19,7 +19,7 @@ Transition = namedtuple('Transition',
 TRANSITION_HISTORY_SIZE = 1000  # keep only ... last transitions
 RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
 BATCH_SIZE = 100
-EXPLORATION_PROB = 0.5
+EXPLORATION_PROB = 0.4
 LEARNING_RATE = 0.00005
 GAMMA = 0.95
 
@@ -41,9 +41,7 @@ def setup_training(self):
     self.gamma = GAMMA
     self.high_score = float("-inf")
     self.closest_to_center = 7
-    self.reward_sum = 0
-    self.loss_sum = 0
-    self.plot_data = {'rewards': [], 'losses': [], 'scores':[]}
+    init_plot_data(self)
 
     self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
     # Load the saved optimizer to continue training
@@ -111,7 +109,9 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     This is *one* of the places where you could update your agent.
     This is also a good place to store an agent that you updated.
 
-    :param self: The same object that is passed to all of your callbacks.
+    :param
+    self: The same object that is passed to all of your callbacks.
+    last_game_state:
     """
 
     self.logger.debug(f'Encountered event(s) {", ".join(map(repr, events))} in final step')
@@ -132,7 +132,7 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     update_plot_data(self, len(batch))
     if self.round % 10 == 0:
         self.model.save(self.optimizer, self.high_score, self.path)
-        plot(self, state_to_features(self, last_game_state))
+        plot(self)
     self.closest_to_center = 7
 
 

@@ -1,5 +1,12 @@
 import matplotlib.pyplot as plt
 
+
+def init_plot_data(self):
+    self.reward_sum = 0
+    self.loss_sum = 0
+    self.plot_data = {'rewards': [], 'losses': [], 'scores':[]}
+
+
 def update_plot_data(self, batch_size):
     if self.score > self.high_score:
         self.high_score = self.score
@@ -11,7 +18,8 @@ def update_plot_data(self, batch_size):
     self.reward_sum = 0
     self.loss_sum = 0
 
-def plot(self, laststate):
+
+def plot(self):
     n_games = range(len(self.plot_data['rewards']))
     fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(8, 13))
     ax1.plot(n_games, self.plot_data['rewards'])
@@ -24,5 +32,5 @@ def plot(self, laststate):
     ax3.set_title('Mean Loss at End of Game')
     ax3.set_xlabel('# rounds')
     ax3.set_ylabel('mean MSE loss')
-    plt.show()
-    pass
+    plt.savefig('test_plot.pdf', format='pdf')
+    plt.close()
