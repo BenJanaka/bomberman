@@ -6,6 +6,7 @@ from .model import LinearQNet
 import torch, torch.nn as nn
 import numpy as np
 
+VIEW_DIST = 16
 ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
 
 
@@ -25,6 +26,7 @@ def setup(self):
     """
     self.overwrite = False
     self.path = "my-saved-model.pt"
+    self.view_dist = VIEW_DIST
 
     if not os.path.isfile(self.path) or self.overwrite:
         self.logger.info("Setting up model from scratch.")
@@ -61,7 +63,7 @@ def act(self, game_state: dict) -> str:
     # Exploration vs exploitation
     if self.train and random.random() < self.exploration_prob:
         self.logger.debug("Choosing action purely at random.")
-        return np.random.choice(ACTIONS, p=[.2, .2, .2, .2, .2, 0])
+        return np.random.choice(ACTIONS, p=[.15, .15, .15, .15, .2, .2])
     else:
         state = torch.tensor(state_to_features(self, game_state), dtype=torch.float)
         prediction = self.model(state)
@@ -73,26 +75,60 @@ def act(self, game_state: dict) -> str:
 def state_to_features(self, game_state):
     assert game_state is not None, "Game state is None"
 
-    field = game_state['field']
-    # TODO: danger
-    explosions = game_state['explosion_map']
-    # bombs = np.zeros(np.shape(padded_field))
-    # for bomb in game_state["bombs"]:
-    #     bombs[bomb[0][0]+shift, bomb[0][1]+shift] = bomb[1]
-    # bombs = bombs[left:right+1, top:bottom+1]
+    self_coord = list(game_state["self"][3])
+    # Walls 5x5 around our agent: self.view_dist = 2
+    shift = self.view_dist-1
+    left = self_coord[0]+shift - self.view_dist
+    right = self_coord[0]+shift + self.view_dist
+    bottom = self_coord[1]+shift + self.view_dist
+    top = self_coord[1]+shift - self.view_dist
 
-    players_coins = np.zeros(np.shape(field))
+    padded_field = np.pad(game_state['field'], self.view_dist-1, constant_values=0).astype(np.float64)
+    walls = padded_field
+    explosions = np.pad(game_state['explosion_map'], self.view_dist-1, constant_values=0)
+    # add pre-explosions for each bomb
+    for bomb in game_state["bombs"]:
+        power = 3
+        x, y = bomb[0][0] + shift, bomb[0][1] + shift
+        walls[x, y] = - 50
+
+        for i in range(1, power + 1):
+            if walls[x + i, y] == -1:
+                break
+            if walls[x + i, y] != 1:
+                walls[x + i, y] = -50 + i * 10
+        for i in range(1, power + 1):
+            if walls[x - i, y] == -1:
+                break
+            if walls[x - i, y] != 1:
+                walls[x - i, y] = -50 + i * 10
+        for i in range(1, power + 1):
+            if walls[x, y + i] == -1:
+                break
+            if walls[x, y + i] != 1:
+                walls[x, y + i] = -50 + i * 10
+        for i in range(1, power + 1):
+            if walls[x, y - i] == -1:
+                break
+            if walls[x, y - i] != 1:
+                walls[x, y - i] = -50 + i * 10
+
+    walls -= 10 * explosions
+    walls = walls[left:right + 1, top:bottom + 1]
+
+    coins = np.zeros(np.shape(padded_field))
     for coin in game_state["coins"]:
-        players_coins[coin[0], coin[1]] = 1
-    self_coord = game_state["self"][3]
-    bomb_ready = int(game_state['self'][2])
-    players_coins[self_coord] = -50 + 5 * int(bomb_ready)
-    for opponent in game_state['others']:
-        coord = opponent[3]
-        can_drop_bomb = opponent[2]
-        players_coins[coord] = 50 - 5 * int(can_drop_bomb)
+        coins[coin[0]+shift, coin[1]+shift] = 1
+    coins = coins[left:right+1, top:bottom+1]
 
-    return np.stack([field, players_coins])
+    bomb_ready = int(game_state['self'][2])
+    players = np.zeros(np.shape(padded_field))
+    players[self_coord[0], self_coord[1]] = - bomb_ready - 1
+    for opponent in game_state['others']:
+        opponent_coord = opponent[3]
+        players[opponent_coord] = opponent[2] + 1
+    players = players[left:right + 1, top:bottom + 1]
+    return np.stack([walls, coins, players])
 
 
 def state_to_features_(self, game_state: dict) -> np.array:

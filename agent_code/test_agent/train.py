@@ -19,9 +19,9 @@ Transition = namedtuple('Transition',
 TRANSITION_HISTORY_SIZE = 1000  # keep only ... last transitions
 RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
 BATCH_SIZE = 100
-EXPLORATION_PROB = 0.8
-LEARNING_RATE = 0.001
-GAMMA = 0.1
+EXPLORATION_PROB = 0.5
+LEARNING_RATE = 0.00005
+GAMMA = 0.95
 
 actions_dic = {'UP': 0, 'RIGHT': 1, 'DOWN': 2, 'LEFT': 3, 'WAIT': 4, 'BOMB': 5}
 
@@ -42,6 +42,7 @@ def setup_training(self):
     self.high_score = float("-inf")
     self.closest_to_center = 7
     self.reward_sum = 0
+    self.loss_sum = 0
     self.plot_data = {'rewards': [], 'losses': [], 'scores':[]}
 
     self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
@@ -124,18 +125,15 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
 
     states, actions, next_states, rewards = zip(*batch)
 
-    self.loss = train_step(self, list(states), list(actions), list(next_states), list(rewards))
+    train_step(self, list(states), list(actions), list(next_states), list(rewards))
 
-    # save_model_if_mean_score_increased(self)
+    # save_model_if_mean_rewards_increased(self)
 
-    if self.score > self.high_score:
-        self.high_score = self.score
-    self.model.save(self.optimizer, self.high_score, self.path)
-    self.closest_to_center = 7
-    update_plot_data(self)
+    update_plot_data(self, len(batch))
     if self.round % 10 == 0:
+        self.model.save(self.optimizer, self.high_score, self.path)
         plot(self, state_to_features(self, last_game_state))
-    self.reward_sum = 0
+    self.closest_to_center = 7
 
 
 def train_step(self, state, action, next_state, reward):
@@ -169,6 +167,7 @@ def train_step(self, state, action, next_state, reward):
     # is called. Checkout docs of torch.autograd.backward for more details.
     self.optimizer.zero_grad()
     loss = self.criterion(Q, Q_pred)
+    self.loss_sum += loss * len(state)
     self.logger.info("Current Loss: {loss}".format(loss=loss))
 
     sys.stdout.write('\r')
@@ -179,7 +178,6 @@ def train_step(self, state, action, next_state, reward):
     loss.backward()
     # Calling the step function on an Optimizer makes an update to its parameters
     self.optimizer.step()
-    return loss
 
 
 def Action_To_One_Hot(action):
@@ -192,7 +190,7 @@ def Action_To_One_Hot(action):
     return one_hot
 
 
-def save_model_if_mean_score_increased(self):
+def save_model_if_mean_rewards_increased(self):
     # besser wenn alles gespeichert wird
     # score as sum of rewards
     games_to_average = 10
