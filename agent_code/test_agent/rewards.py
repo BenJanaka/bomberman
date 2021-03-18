@@ -4,6 +4,8 @@ SURVIVED_OWN_BOMB = "SURVIVED_OWN_BOMB"
 COLLECTED_THIRD_OR_HIGHER_COIN = "COLLECTED_THIRD_OR_HIGHER_COIN"
 PERFORMED_SAME_INVALID_ACTION_TWICE = "PERFORMED_SAME_INVALID_ACTION_TWICE"
 
+PLACED_BOMB_NEXT_TO_CRATE = "PLACED_BOMB_NEXT_TO_CRATE"
+
 # rewards are given only once for events:
 MOVED_TOWARDS_CENTER_1, MOVED_TOWARDS_CENTER_2 = "MOVED_TOWARDS_CENTER_1", "MOVED_TOWARDS_CENTER_2"
 MOVED_TOWARDS_CENTER_3, MOVED_TOWARDS_CENTER_4 = "MOVED_TOWARDS_CENTER_3", "MOVED_TOWARDS_CENTER_4"
@@ -23,6 +25,14 @@ def append_events(self, old_game_state, self_action, new_game_state, events):
         last_transition = self.transitions[-1]
         if "INVALID_ACTION" in events and self_action == last_transition.action:
             events.append(PERFORMED_SAME_INVALID_ACTION_TWICE)
+    if self_action == 'BOMB' and len(new_game_state['bombs']) > 0:
+        bomb_coord = new_game_state['bombs'][0][0]
+        field = new_game_state['field']
+        if field[bomb_coord[0] + 1, bomb_coord[1]] == 1 \
+                or field[bomb_coord[0] - 1, bomb_coord[1]] == 1 \
+                or field[bomb_coord[0], bomb_coord[1] + 1] == 1 \
+                or field[bomb_coord[0], bomb_coord[1] - 1] == 1:
+            events.append(PLACED_BOMB_NEXT_TO_CRATE)
     # if agents moved towards center:
     # closest point is saved so that a repeated back and forth movement is prevented
     self_coord = new_game_state['self'][3]
@@ -52,19 +62,20 @@ def reward_from_events(self, events):
     certain behavior.
     """
     game_rewards = {
-        e.GOT_KILLED: -10,
+        e.GOT_KILLED: 0,
         e.SURVIVED_ROUND: 0,
         e.OPPONENT_ELIMINATED: 0,
 
-        e.BOMB_DROPPED: 10,
+        e.BOMB_DROPPED: -1,
+        PLACED_BOMB_NEXT_TO_CRATE: 60,
         e.BOMB_EXPLODED: 0,
-        e.KILLED_SELF: -80,
-        e.KILLED_OPPONENT: 200,
-        SURVIVED_OWN_BOMB: 30,
-        e.CRATE_DESTROYED: 80,
+        e.KILLED_SELF: -100,
+        e.KILLED_OPPONENT: 0,
+        SURVIVED_OWN_BOMB: 0,
+        e.CRATE_DESTROYED: 0,
         e.COIN_FOUND: 0,
 
-        e.COIN_COLLECTED: 100,
+        e.COIN_COLLECTED: 80,
         COLLECTED_THIRD_OR_HIGHER_COIN: 0,
 
         e.INVALID_ACTION: -10,

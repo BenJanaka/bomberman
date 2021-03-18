@@ -58,6 +58,7 @@ def act(self, game_state: dict) -> str:
     :param game_state: The dictionary that describes everything on the board.
     :return: The action to take as a string.
     """
+
     assert game_state is not None, "Game state is None"
 
     # Exploration vs exploitation
@@ -86,34 +87,35 @@ def state_to_features(self, game_state):
     padded_field = np.pad(game_state['field'], self.view_dist-1, constant_values=0).astype(np.float64)
     walls = padded_field
     explosions = np.pad(game_state['explosion_map'], self.view_dist-1, constant_values=0)
-    # add pre-explosions for each bomb
+    # add pre-explosions for each bomb if no crate is on field with timer
+    power = 3
     for bomb in game_state["bombs"]:
-        power = 3
         x, y = bomb[0][0] + shift, bomb[0][1] + shift
-        walls[x, y] = - 50
+        timer = bomb[1]
+        walls[x, y] = - 50 + (4-timer) * 5
 
         for i in range(1, power + 1):
             if walls[x + i, y] == -1:
                 break
             if walls[x + i, y] != 1:
-                walls[x + i, y] = -50 + i * 10
+                walls[x + i, y] = (-50 + i * 5.) + (4-timer) * 5
         for i in range(1, power + 1):
             if walls[x - i, y] == -1:
                 break
             if walls[x - i, y] != 1:
-                walls[x - i, y] = -50 + i * 10
+                walls[x - i, y] = (-50 + i * 5.) + (4-timer) * 5
         for i in range(1, power + 1):
             if walls[x, y + i] == -1:
                 break
             if walls[x, y + i] != 1:
-                walls[x, y + i] = -50 + i * 10
+                walls[x, y + i] = (-50 + i * 5.) + (4-timer) * 10
         for i in range(1, power + 1):
             if walls[x, y - i] == -1:
                 break
             if walls[x, y - i] != 1:
-                walls[x, y - i] = -50 + i * 10
+                walls[x, y - i] = (-50 + i * 5.) + (4-timer) * 5
 
-    walls -= 10 * explosions
+    walls -= 30 * explosions
     walls = walls[left:right + 1, top:bottom + 1]
 
     coins = np.zeros(np.shape(padded_field))

@@ -32,5 +32,6 @@ def plot(self):
     ax3.set_title('Mean Loss at End of Game')
     ax3.set_xlabel('# rounds')
     ax3.set_ylabel('mean MSE loss')
+    ax3.set_yscale('log')
     plt.savefig('test_plot.pdf', format='pdf')
     plt.close()
