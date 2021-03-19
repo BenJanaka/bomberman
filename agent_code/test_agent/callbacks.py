@@ -8,6 +8,8 @@ import numpy as np
 
 VIEW_DIST = 16
 ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
+device = 'cpu'
+device = 'cuda'
 
 
 def setup(self):
@@ -30,7 +32,7 @@ def setup(self):
 
     if not os.path.isfile(self.path) or self.overwrite:
         self.logger.info("Setting up model from scratch.")
-        self.model = LinearQNet(6)
+        self.model = LinearQNet(6).to(device)
         for layer in self.model.children():
             if isinstance(layer, nn.Linear) or isinstance(layer, nn.Conv2d):
                 layer.bias.data.fill_(0.)
@@ -38,7 +40,7 @@ def setup(self):
 
     else:
         self.logger.info("Loading model from saved state.")
-        self.model = LinearQNet(6)
+        self.model = LinearQNet(6).to(device)
         self.saved_state = self.model.load(self.path)
         self.model.load_state_dict(self.saved_state['model'])
         self.logger.info("Loaded highscore: {score}".format(score=self.saved_state['score']), )
@@ -64,10 +66,10 @@ def act(self, game_state: dict) -> str:
     # Exploration vs exploitation
     if self.train and random.random() < self.exploration_prob:
         self.logger.debug("Choosing action purely at random.")
-        return np.random.choice(ACTIONS, p=[.15, .15, .15, .15, .2, .2])
+        return np.random.choice(ACTIONS, p=[.15, .15, .15, .15, .1, .3])
     else:
         state = torch.tensor(state_to_features(self, game_state), dtype=torch.float)
-        prediction = self.model(state)
+        prediction = self.model(state.to(device))
         action = ACTIONS[torch.argmax(prediction).item()]
         self.logger.debug("Querying model for action: {action}".format(action=action))
         return action
@@ -92,43 +94,52 @@ def state_to_features(self, game_state):
     for bomb in game_state["bombs"]:
         x, y = bomb[0][0] + shift, bomb[0][1] + shift
         timer = bomb[1]
-        walls[x, y] = - 50 + (4-timer) * 5
+        walls[x, y] = - 30 - (4-timer) * 5
 
         for i in range(1, power + 1):
             if walls[x + i, y] == -1:
                 break
             if walls[x + i, y] != 1:
-                walls[x + i, y] = (-50 + i * 5.) + (4-timer) * 5
+                walls[x + i, y] = (-30 + i * 5.) - (4-timer) * 5
+
         for i in range(1, power + 1):
             if walls[x - i, y] == -1:
                 break
             if walls[x - i, y] != 1:
-                walls[x - i, y] = (-50 + i * 5.) + (4-timer) * 5
+                walls[x - i, y] = (-30 + i * 5.) - (4-timer) * 5
+
         for i in range(1, power + 1):
             if walls[x, y + i] == -1:
                 break
             if walls[x, y + i] != 1:
-                walls[x, y + i] = (-50 + i * 5.) + (4-timer) * 10
+                walls[x, y + i] = (-30 + i * 5.) - (4-timer) * 5
+
         for i in range(1, power + 1):
             if walls[x, y - i] == -1:
                 break
             if walls[x, y - i] != 1:
-                walls[x, y - i] = (-50 + i * 5.) + (4-timer) * 5
-
-    walls -= 30 * explosions
-    walls = walls[left:right + 1, top:bottom + 1]
+                walls[x, y - i] = (-30 + i * 5.) - (4-timer) * 5
 
     coins = np.zeros(np.shape(padded_field))
     for coin in game_state["coins"]:
         coins[coin[0]+shift, coin[1]+shift] = 1
-    coins = coins[left:right+1, top:bottom+1]
+
+    # make crates to -1 so that agent knows not to run against them
+    # and add crates to coin field
+    coins[walls == 1] = -0.1
+    coins = coins[left:right + 1, top:bottom + 1]
+
+    # here we exploit that explosions are only one time step lethal
+    explosions[explosions == 1] = 0
+    walls -= 30 * explosions
+    walls = walls[left:right + 1, top:bottom + 1]
 
     bomb_ready = int(game_state['self'][2])
     players = np.zeros(np.shape(padded_field))
-    players[self_coord[0], self_coord[1]] = - bomb_ready - 1
+    players[self_coord[0] + shift, self_coord[1] + shift] = - bomb_ready - 1
     for opponent in game_state['others']:
         opponent_coord = opponent[3]
-        players[opponent_coord] = opponent[2] + 1
+        players[opponent_coord[0] + shift, opponent_coord[1] + shift] = opponent[2] + 1
     players = players[left:right + 1, top:bottom + 1]
     return np.stack([walls, coins, players])
 

@@ -34,4 +34,4 @@ def plot(self):
     ax3.set_ylabel('mean MSE loss')
     ax3.set_yscale('log')
     plt.savefig('test_plot.pdf', format='pdf')
-    plt.close()
+    plt.close('all')
