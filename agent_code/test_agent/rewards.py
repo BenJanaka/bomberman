@@ -80,7 +80,7 @@ def reward_from_events(self, events):
 
         e.INVALID_ACTION: -10,
         PERFORMED_SAME_INVALID_ACTION_TWICE: 0,
-        e.WAITED: -10,
+        e.WAITED: -1,
         e.MOVED_LEFT: -1,
         e.MOVED_RIGHT: -1,
         e.MOVED_UP: -1,

@@ -24,13 +24,17 @@ def setup(self):
 
     :param self: This object is passed to all callbacks and you can set arbitrary values.
     """
-    self.overwrite = False
+    self.overwrite = True
     self.path = "my-saved-model.pt"
     self.view_dist = VIEW_DIST
+    self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    self.logger.info("running on device {device}".format(device=self.device.type))
 
     if not os.path.isfile(self.path) or self.overwrite:
         self.logger.info("Setting up model from scratch.")
         self.model = LinearQNet(6)
+        self.model.to(self.device)
         for layer in self.model.children():
             if isinstance(layer, nn.Linear) or isinstance(layer, nn.Conv2d):
                 layer.bias.data.fill_(0.)
@@ -39,6 +43,7 @@ def setup(self):
     else:
         self.logger.info("Loading model from saved state.")
         self.model = LinearQNet(6)
+        self.model.to(self.device)
         self.saved_state = self.model.load(self.path)
         self.model.load_state_dict(self.saved_state['model'])
         self.logger.info("Loaded highscore: {score}".format(score=self.saved_state['score']), )
@@ -76,6 +81,25 @@ def act(self, game_state: dict) -> str:
 def state_to_features(self, game_state):
     assert game_state is not None, "Game state is None"
 
+    field = game_state["field"]
+    own_agent = game_state["self"]
+    field[own_agent[3][0]][own_agent[3][1]] = 100
+    coins = game_state["coins"]
+    for coin in coins:
+        field[coin[0]][coin[1]] = 1
+    return field
+
+    field = game_state["field"]
+    field[field==0] = 1
+    field[field==-1] = 0
+    own_agent = game_state["self"]
+    agent_field = np.zeros(field.shape)
+    agent_field[own_agent[3][0]][own_agent[3][1]] = 1
+    coin_field = np.zeros(field.shape)
+    coins = game_state["coins"]
+    for coin in coins:
+        coin_field[coin[0]][coin[1]] = 1
+    return np.stack([field, agent_field, coin_field])
     self_coord = list(game_state["self"][3])
     # Walls 5x5 around our agent: self.view_dist = 2
     shift = self.view_dist-1

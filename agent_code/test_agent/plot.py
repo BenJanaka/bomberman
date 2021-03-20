@@ -1,9 +1,12 @@
-import matplotlib.pyplot as plt
+import math
 
+import matplotlib.pyplot as plt
+import numpy as np
 
 def init_plot_data(self):
     self.reward_sum = 0
     self.loss_sum = 0
+    self.average_scores = np.array([])
     self.plot_data = {'rewards': [], 'losses': [], 'scores':[]}
 
 
@@ -13,7 +16,7 @@ def update_plot_data(self, batch_size):
     self.plot_data['rewards'] += [self.reward_sum]
     # loss of evaluation of batch 100
     mean_loss = self.loss_sum / (self.step + batch_size)
-    self.plot_data['losses'] += [mean_loss]
+    self.plot_data['losses'] += [mean_loss.detach().numpy()]
     self.plot_data['scores'] += [self.score]
     self.reward_sum = 0
     self.loss_sum = 0
@@ -21,7 +24,7 @@ def update_plot_data(self, batch_size):
 
 def plot(self):
     n_games = range(len(self.plot_data['rewards']))
-    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(8, 13))
+    fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, 1, figsize=(8, 10))
     ax1.plot(n_games, self.plot_data['rewards'])
     ax1.set_title('Sum of Rewards')
     ax1.set_ylabel('rewards')
@@ -33,5 +36,10 @@ def plot(self):
     ax3.set_xlabel('# rounds')
     ax3.set_ylabel('mean MSE loss')
     ax3.set_yscale('log')
+    ax4.set_title('average score')
+    ax4.set_xlabel('# rounds')
+    ax4.set_ylabel('score')
+    self.average_scores = np.append(self.average_scores, np.array(self.plot_data['scores']).mean())
+    ax4.plot(np.arange(10, n_games.stop + 10, 10), self.average_scores)
     plt.savefig('test_plot.pdf', format='pdf')
     plt.close()

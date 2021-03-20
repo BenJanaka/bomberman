@@ -10,24 +10,22 @@ class LinearQNet(nn.Module):
         super().__init__()
 
         self.conv = nn.Sequential(
-            nn.Conv2d(in_channels=3, out_channels=32, kernel_size=8, stride=2, padding=1, bias=True),
-            nn.GroupNorm(4, 32),
-            nn.CELU(),
-            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=6, stride=2, padding=0, bias=True),
-            nn.GroupNorm(4, 64),
-            nn.CELU(),
-            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=0, bias=True),
-            nn.GroupNorm(4, 64),
-            nn.CELU(),
+            nn.Conv2d(in_channels=1, out_channels=32, kernel_size=8, stride=4),
+            nn.ReLU(),
+            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=2),
+            nn.ReLU(),
+            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=1, stride=1),
+            nn.ReLU()
         )
-        self.linear1 = nn.Linear(3*3*64, 256, bias=True)
+
+        self.linear1 = nn.Linear(64, 256, bias=True)
         self.linear2 = nn.Linear(256, output_size, bias=True)
         self.dropout = nn.Dropout(0.2)
 
     def forward(self, x):
-        x = x.view((-1, 3, 33, 33))
+        x = x.view((-1, 1, 17, 17))
         x = self.conv(x)
-        x = x.view((-1, 3 * 3 * 64))
+        x = x.view(-1, 64)
         x = torch.sigmoid(self.linear1(x))
         # x = self.dropout(x)
         x = self.linear2(x)

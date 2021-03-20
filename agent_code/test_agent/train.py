@@ -19,8 +19,8 @@ Transition = namedtuple('Transition',
 TRANSITION_HISTORY_SIZE = 1000  # keep only ... last transitions
 RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
 BATCH_SIZE = 80
-EXPLORATION_PROB = 1
-LEARNING_RATE = 0.00005
+EXPLORATION_PROB = 0.25
+LEARNING_RATE = 0.01
 GAMMA = 0.8
 
 actions_dic = {'UP': 0, 'RIGHT': 1, 'DOWN': 2, 'LEFT': 3, 'WAIT': 4, 'BOMB': 5}
