@@ -19,7 +19,7 @@ Transition = namedtuple('Transition',
 TRANSITION_HISTORY_SIZE = 1000  # keep only ... last transitions
 RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
 BATCH_SIZE = 200
-EXPLORATION_PROB = 0.2
+EXPLORATION_PROB = 1
 LEARNING_RATE = 0.00002
 GAMMA = 0.95
 
@@ -54,7 +54,7 @@ def setup_training(self):
     else:
         print('Started training session from scratch')
     print(f'with learning rate {self.learning_rate} and exploration probability {self.exploration_prob}')
-    print(' round  score  high score          loss')
+    print(' round  score  high score          loss  expl prob')
 
     # self.criterion = nn.SmoothL1Loss()
     self.criterion = nn.MSELoss()
@@ -135,6 +135,9 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     if self.round % 10 == 0:
         self.model.save(self.optimizer, self.high_score, self.path)
         plot(self)
+        # exploit this function for scheduled exploration prob
+        self.exploration_prob = max(0.05, self.exploration_prob - 0.0005)
+
     self.closest_to_center = 7
 
 
@@ -174,7 +177,7 @@ def train_step(self, state, action, next_state, reward):
 
     sys.stdout.write('\r')
     sys.stdout.write(f"{str(self.round):>6} {str(self.score):>6} {str(self.high_score):>11.3} "
-        + f"{loss.item():>13.5f} " + f"{self.exploration_prob:>5.5f} ")
+        + f"{loss.item():>13.5f} {self.exploration_prob:>10.5f} ")
 
     # Backward pass: compute gradient of the loss with respect to model parameters
     loss.backward()
