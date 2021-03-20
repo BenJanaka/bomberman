@@ -20,6 +20,10 @@ def update_plot_data(self, batch_size):
 
 
 def plot(self):
+    # exploit this function for scheduled exploration prob
+    self.exploration_prob -= 0.0005
+    self.exploration_prob = max(0.05, self.exploration_prob)
+
     n_games = range(len(self.plot_data['rewards']))
     fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(8, 13))
     ax1.plot(n_games, self.plot_data['rewards'])

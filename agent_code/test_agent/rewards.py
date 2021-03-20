@@ -4,7 +4,12 @@ SURVIVED_OWN_BOMB = "SURVIVED_OWN_BOMB"
 COLLECTED_THIRD_OR_HIGHER_COIN = "COLLECTED_THIRD_OR_HIGHER_COIN"
 PERFORMED_SAME_INVALID_ACTION_TWICE = "PERFORMED_SAME_INVALID_ACTION_TWICE"
 
-PLACED_BOMB_NEXT_TO_CRATE = "PLACED_BOMB_NEXT_TO_CRATE"
+# the 0 is replaced by the number of crates next to the bomb (3 at most)
+PLACED_BOMB_NEXT_TO_CRATE = "PLACED_BOMB_NEXT_TO_CRATE_0"
+
+# ran into a dead end right after bomb drop
+# only valid if agent plays without opponents
+DEAD_END = 'DEAD_END'
 
 # rewards are given only once for events:
 MOVED_TOWARDS_CENTER_1, MOVED_TOWARDS_CENTER_2 = "MOVED_TOWARDS_CENTER_1", "MOVED_TOWARDS_CENTER_2"
@@ -28,11 +33,19 @@ def append_events(self, old_game_state, self_action, new_game_state, events):
     if self_action == 'BOMB' and len(new_game_state['bombs']) > 0:
         bomb_coord = new_game_state['bombs'][0][0]
         field = new_game_state['field']
-        if field[bomb_coord[0] + 1, bomb_coord[1]] == 1 \
-                or field[bomb_coord[0] - 1, bomb_coord[1]] == 1 \
-                or field[bomb_coord[0], bomb_coord[1] + 1] == 1 \
-                or field[bomb_coord[0], bomb_coord[1] - 1] == 1:
+        n_crates = 0
+        for position in [field[bomb_coord[0] + 1, bomb_coord[1]] ,
+                field[bomb_coord[0] - 1, bomb_coord[1]],
+                field[bomb_coord[0], bomb_coord[1] + 1],
+                field[bomb_coord[0], bomb_coord[1] - 1]]:
+            if position == 1:
+                n_crates += 1
+        if n_crates > 0:
+            PLACED_BOMB_NEXT_TO_CRATE = "PLACED_BOMB_NEXT_TO_CRATE_" + str(n_crates)
             events.append(PLACED_BOMB_NEXT_TO_CRATE)
+    # if entered_dead_end_after_bombing(self_action, new_game_state, events):
+    #     events.append(DEAD_END)
+
     # if agents moved towards center:
     # closest point is saved so that a repeated back and forth movement is prevented
     self_coord = new_game_state['self'][3]
@@ -54,6 +67,36 @@ def append_events(self, old_game_state, self_action, new_game_state, events):
     return events
 
 
+def entered_dead_end_after_bombing(self_action, new_game_state, events):
+    if len(new_game_state['bombs']) > 0 and new_game_state['bombs'][0][1] == 2:
+        # LAST action was BOMB
+        posi = new_game_state['self'][3]
+        if self_action in ['UP', 'DOWN'] and e.INVALID_ACTION not in events:
+            can_not_escape_to_side = new_game_state['field'][posi[0]+1, posi[1]] in [1, -1] and \
+                                     new_game_state['field'][posi[0]-1, posi[1]] in [1, -1]
+            if can_not_escape_to_side:
+                can_not_escape_to_front = new_game_state['field'][posi[0], posi[1] + 1] in [1, -1]
+                if can_not_escape_to_front:
+                    return True
+                else:
+                    can_not_escape_to_side = new_game_state['field'][posi[0] + 1, posi[1] + 1] in [1, -1] and \
+                                             new_game_state['field'][posi[0] - 1, posi[1] + 1] in [1, -1]
+                    if can_not_escape_to_side:
+                        can_not_escape_to_front = new_game_state['field'][posi[0], posi[1] + 2] in [1, -1]
+                        if can_not_escape_to_front:
+                            return True
+                        else:
+                            can_not_escape_to_side = new_game_state['field'][posi[0] + 1, posi[1] + 2] in [1, -1] and \
+                                                     new_game_state['field'][posi[0] - 1, posi[1] + 2] in [1, -1]
+                            if can_not_escape_to_side:
+                                can_not_escape_to_front = new_game_state['field'][posi[0], posi[1] + 3] in [1, -1]
+                                if can_not_escape_to_front:
+                                    return True
+    else:
+        return False
+
+
+
 def reward_from_events(self, events):
     """
     *This is not a required function, but an idea to structure your code.*
@@ -66,9 +109,10 @@ def reward_from_events(self, events):
         e.SURVIVED_ROUND: 0,
         e.OPPONENT_ELIMINATED: 0,
 
-        e.BOMB_DROPPED: 30,
+        e.BOMB_DROPPED: 20,
         PLACED_BOMB_NEXT_TO_CRATE: 50,
         e.BOMB_EXPLODED: 0,
+        DEAD_END: 0,
         e.KILLED_SELF: -100,
         e.KILLED_OPPONENT: 0,
         SURVIVED_OWN_BOMB: 50,
@@ -99,6 +143,10 @@ def reward_from_events(self, events):
     reward_sum = 0
     for event in events:
         if event in game_rewards:
-            reward_sum += game_rewards[event]
+            if event == PLACED_BOMB_NEXT_TO_CRATE:
+                n_crates = int(game_rewards[PLACED_BOMB_NEXT_TO_CRATE][-1])
+                reward_sum += 50 * n_crates
+            else:
+                reward_sum += game_rewards[event]
     self.logger.info(f"Awarded {reward_sum} for events {', '.join(events)}")
     return reward_sum
