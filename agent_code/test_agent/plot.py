@@ -28,7 +28,8 @@ def plot(self):
     ax2.plot(n_games, self.plot_data['scores'])
     ax2.set_title('Final Score')
     ax2.set_ylabel('score')
-    ax3.plot(n_games, self.plot_data['losses'])
+    if self.device.type == 'cuda':
+        ax3.plot(n_games, [loss.cpu().detach().numpy() for loss in self.plot_data['losses']])
     ax3.set_title('Mean Loss at End of Game')
     ax3.set_xlabel('# rounds')
     ax3.set_ylabel('mean MSE loss')

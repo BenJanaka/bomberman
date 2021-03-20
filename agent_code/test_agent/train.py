@@ -24,8 +24,6 @@ LEARNING_RATE = 0.00005
 GAMMA = 0.95
 
 actions_dic = {'UP': 0, 'RIGHT': 1, 'DOWN': 2, 'LEFT': 3, 'WAIT': 4, 'BOMB': 5}
-device = 'cpu'
-device = 'cuda'
 
 
 def setup_training(self):
@@ -152,14 +150,14 @@ def train_step(self, state, action, next_state, reward):
 
     # predicted Q values: expected reward of current state and action with dimension (batch size, # actions)
     # update with temporal difference (TD) Q-learning algorithm (third lecture examples)
-    Q_pred = self.model(state.to(device))
+    Q_pred = self.model(state.to(self.device))
     Q = Q_pred.clone()
 
     for idx in range(len(reward)):
         if done[idx]:
             Q_new = reward[idx]
         else:
-            Q_new = reward[idx] + self.gamma * torch.max(self.model(next_state[idx].to(device)))
+            Q_new = reward[idx] + self.gamma * torch.max(self.model(next_state[idx].to(self.device)))
         Q[idx][torch.argmax(action[idx]).item()] = Q_new
 
     # Before the backward pass, use the optimizer object to zero all of the
