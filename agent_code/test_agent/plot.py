@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 def init_plot_data(self):
     self.reward_sum = 0
     self.loss_sum = 0
-    self.plot_data = {'rewards': [], 'losses': [], 'scores':[]}
+    self.plot_data = {'rewards': [], 'losses': [], 'scores': []}
 
 
 def update_plot_data(self, batch_size):
