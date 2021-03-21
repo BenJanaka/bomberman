@@ -10,27 +10,27 @@ class LinearQNet(nn.Module):
         super().__init__()
 
         self.conv = nn.Sequential(
-            nn.Conv2d(in_channels=3, out_channels=32, kernel_size=8, stride=2, padding=1, bias=True),
-            nn.GroupNorm(4, 32),
-            nn.CELU(),
-            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=6, stride=2, padding=0, bias=True),
+            nn.Conv2d(in_channels=7, out_channels=64, kernel_size=5, stride=1),
+            nn.MaxPool2d(2),
             nn.GroupNorm(4, 64),
             nn.CELU(),
-            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=0, bias=True),
-            nn.GroupNorm(4, 64),
+            nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, stride=1),
+            nn.MaxPool2d(2),
+            nn.GroupNorm(4, 128),
             nn.CELU(),
         )
-        self.linear1 = nn.Linear(3*3*64, 256, bias=True)
-        self.linear2 = nn.Linear(256, output_size, bias=True)
-        self.dropout = nn.Dropout(0.2)
+        self.linear1 = nn.Linear(5*5*128, 256)
+        self.linear2 = nn.Linear(256, output_size)
+        self.dropout = nn.Dropout(0.1)
 
     def forward(self, x):
-        x = x.view((-1, 3, 33, 33))
+        x = x.view((-1, 7, 29, 29))
         x = self.conv(x)
-        x = x.view((-1, 3 * 3 * 64))
+        x = x.view((-1, 5 * 5 * 128))
         x = torch.sigmoid(self.linear1(x))
-        # x = self.dropout(x)
+        x = self.dropout(x)
         x = self.linear2(x)
+        x = self.dropout(x)
         return x # output must be in same order of mag as rewards -> no activation for output
 
     def save(self, optimizer, score, path):

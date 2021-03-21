@@ -45,7 +45,7 @@ def setup(self):
         self.model = LinearQNet(6).to(self.device)
         self.saved_state = self.model.load(self.path)
         self.model.load_state_dict(self.saved_state['model'])
-        self.logger.info("Loaded highscore: {score}".format(score=self.saved_state['score']), )
+        self.logger.info("Loaded high score: {score}".format(score=self.saved_state['score']), )
 
     if self.train:
         self.model.train()
@@ -68,7 +68,7 @@ def act(self, game_state: dict) -> str:
     # Exploration vs exploitation
     if self.train and random.random() < self.exploration_prob:
         self.logger.debug("Choosing action purely at random.")
-        return np.random.choice(ACTIONS, p=[.15, .15, .15, .15, .1, .3])
+        return np.random.choice(ACTIONS, p=[0.2, .2, .2, .2, .1, 0.1])
     else:
         state = torch.tensor(state_to_features(self, game_state), dtype=torch.float)
         prediction = self.model(state.to(self.device))
@@ -78,81 +78,12 @@ def act(self, game_state: dict) -> str:
 
 
 def state_to_features(self, game_state):
-    assert game_state is not None, "Game state is None"
-
-    self_coord = list(game_state["self"][3])
-    # Walls 5x5 around our agent: self.view_dist = 2
-    shift = self.view_dist-1
-    left = self_coord[0]+shift - self.view_dist
-    right = self_coord[0]+shift + self.view_dist
-    bottom = self_coord[1]+shift + self.view_dist
-    top = self_coord[1]+shift - self.view_dist
-
-    padded_field = np.pad(game_state['field'], self.view_dist-1, constant_values=0).astype(np.float64)
-    walls = padded_field
-    explosions = np.pad(game_state['explosion_map'], self.view_dist-1, constant_values=0)
-    # add pre-explosions for each bomb if no crate is on field with timer
-    power = 3
-    for bomb in game_state["bombs"]:
-        x, y = bomb[0][0] + shift, bomb[0][1] + shift
-        timer = bomb[1]
-        walls[x, y] = - 30 - (4-timer) * 5
-
-        for i in range(1, power + 1):
-            if walls[x + i, y] == -1:
-                break
-            if walls[x + i, y] != 1:
-                walls[x + i, y] = (-30 + i * 5.) - (4-timer) * 5
-
-        for i in range(1, power + 1):
-            if walls[x - i, y] == -1:
-                break
-            if walls[x - i, y] != 1:
-                walls[x - i, y] = (-30 + i * 5.) - (4-timer) * 5
-
-        for i in range(1, power + 1):
-            if walls[x, y + i] == -1:
-                break
-            if walls[x, y + i] != 1:
-                walls[x, y + i] = (-30 + i * 5.) - (4-timer) * 5
-
-        for i in range(1, power + 1):
-            if walls[x, y - i] == -1:
-                break
-            if walls[x, y - i] != 1:
-                walls[x, y - i] = (-30 + i * 5.) - (4-timer) * 5
-
-    coins = np.zeros(np.shape(padded_field))
-    for coin in game_state["coins"]:
-        coins[coin[0]+shift, coin[1]+shift] = 1
-
-    # make crates to -1 so that agent knows not to run against them
-    # and add crates to coin field
-    coins[walls == 1] = -0.1
-    coins = coins[left:right + 1, top:bottom + 1]
-
-    # here we exploit that explosions are only one time step lethal
-    explosions[explosions == 1] = 0
-    walls -= 30 * explosions
-    walls = walls[left:right + 1, top:bottom + 1]
-
-    bomb_ready = int(game_state['self'][2])
-    players = np.zeros(np.shape(padded_field))
-    players[self_coord[0] + shift, self_coord[1] + shift] = - bomb_ready - 1
-    for opponent in game_state['others']:
-        opponent_coord = opponent[3]
-        players[opponent_coord[0] + shift, opponent_coord[1] + shift] = opponent[2] + 1
-    players = players[left:right + 1, top:bottom + 1]
-    return np.stack([walls, coins, players])
-
-
-def state_to_features_(self, game_state: dict) -> np.array:
     """
     *This is not a required function, but an idea to structure your code.*
 
     Converts the game state to the input of your model, i.e.
     a feature vector.
-    
+
     game_state: {
     'round': int,
     'step': int,
@@ -170,51 +101,74 @@ def state_to_features_(self, game_state: dict) -> np.array:
     :param game_state:  A dictionary describing the current game board.
     :return: np.array
     """
-
-    # TODO: implement perceptual field with:
-    #  own coordinates + bomb available = 3
-    #  blocking walls as p x p = 9
-    #  active flame blocks as = 9
-    #  coordinates of coins 9 * (x,y). sort the coins by distance to our agent. Fill the rest of the coin matrix by (-1, -1) = 18
-    #  For the bombs, 4 x 3: for every bomb coordinate and countdown. Fill with (-1, -1, 0) as filler
-    #  33 + 2p^2
-    # This is the dict before the game begins and after it ends
     assert game_state is not None, "Game state is None"
 
-    own_agent = [game_state["self"][2]] + list(game_state["self"][3])
-    # Walls and explosion sub-fields. 3x3 around our agent
-    walls_pxp = list(game_state['field'][own_agent[1]-1:own_agent[1]+2, own_agent[2]-1:own_agent[2]+2].flatten())
-    explosions_pxp = list(game_state['explosion_map'][own_agent[1]-1:own_agent[1]+2, own_agent[2]-1:own_agent[2]+2].flatten())
-    # list of coins where each coins coordinate is saved.
-    coin_dist = [-1] * 9 * 2
-    # List of bombs where each bombs coordinate and its countdown in listed.
-    bomb_list = [-1] * 3 * 4  # 3 * 9
+    self_coord = list(game_state["self"][3])
+    # Walls 5x5 around our agent: self.view_dist = 2
+    shift = self.view_dist-1
+    left = self_coord[0]+shift - self.view_dist
+    right = self_coord[0]+shift + self.view_dist
+    bottom = self_coord[1]+shift + self.view_dist
+    top = self_coord[1]+shift - self.view_dist
 
-    # Create distances between own position and bomb positions
-    own_pos = np.array((own_agent[1], own_agent[2]))
-    state_bombs = game_state['bombs']
-    distances = []
-    for idx, bomb in enumerate(state_bombs):
-        bomb_pos = np.array((bomb[0][0], bomb[0][1]))
-        # distance between own and bomb
-        distance = np.linalg.norm(own_pos - bomb_pos)
-        distances.append(distance)
+    padded_field = np.pad(game_state['field'], self.view_dist-1, constant_values=0).astype(np.float64)
+    crates = np.zeros(np.shape(padded_field))
+    crates[padded_field == 1] = 1
+    crates = crates[left:right + 1, top:bottom + 1]
+    walls = np.zeros(np.shape(padded_field))
+    walls[padded_field == -1] = 1
+    walls = walls[left:right + 1, top:bottom + 1]
 
-    # Add each coin to the output list: coin_dist
-    for idx, coin in enumerate(game_state['coins']):
-        coin_dist[idx * 2: idx * 2 + 2] = list(own_pos - np.array(coin))
+    explosions = np.pad(game_state['explosion_map'], self.view_dist-1, constant_values=0)
+    # here we exploit that explosions are only one time step lethal
+    explosions[explosions == 1] = 0
+    explosions = explosions[left:right + 1, top:bottom + 1]
 
-    # Add all bombs to the output list: bomb_list
-    for idx, bomb in enumerate(state_bombs):
-        # (x, y, countdown)
-        # replace slice by actual values
-        bomb_list[idx * 3:idx * 3 + 3] = list(bomb[0]) + [bomb[1]]
+    bombs = np.zeros(np.shape(padded_field))
+    # add pre-explosions for each bomb if no crate is on field with timer
+    power = 3
+    for bomb in game_state["bombs"]:
+        x, y = bomb[0][0] + shift, bomb[0][1] + shift
+        timer = bomb[1]
+        bombs[x, y] = - 30 - (4-timer) * 5
+        for i in range(1, power + 1):
+            if bombs[x + i, y] == -1:
+                break
+            if bombs[x + i, y] != 1:
+                bombs[x + i, y] = (-30 + i * 5.) - (4-timer) * 5
 
-    # TODO: coordinates relative to agent + opponents
-    # output = np.array(walls_pxp + explosions_pxp + coin_dist + bomb_list + own_agent, dtype=np.float32)
-    output = np.array(walls_pxp + coin_dist + list(np.zeros(24)), dtype=np.float32)
-    return output # list of length 51
+        for i in range(1, power + 1):
+            if bombs[x - i, y] == -1:
+                break
+            if bombs[x - i, y] != 1:
+                bombs[x - i, y] = (-30 + i * 5.) - (4-timer) * 5
 
+        for i in range(1, power + 1):
+            if bombs[x, y + i] == -1:
+                break
+            if bombs[x, y + i] != 1:
+                bombs[x, y + i] = (-30 + i * 5.) - (4-timer) * 5
 
-def sortByDistance(element, distances):
-    pass
+        for i in range(1, power + 1):
+            if bombs[x, y - i] == -1:
+                break
+            if bombs[x, y - i] != 1:
+                bombs[x, y - i] = (-30 + i * 5.) - (4-timer) * 5
+    bombs = bombs[left:right + 1, top:bottom + 1]
+
+    coins = np.zeros(np.shape(padded_field))
+    for coin in game_state["coins"]:
+        coins[coin[0]+shift, coin[1]+shift] = 1
+    coins = coins[left:right + 1, top:bottom + 1]
+
+    bomb_ready = int(game_state['self'][2])
+    player = np.zeros(np.shape(padded_field))
+    player[self_coord[0] + shift, self_coord[1] + shift] = - bomb_ready - 1
+    player = player[left:right + 1, top:bottom + 1]
+
+    opponents = np.zeros(np.shape(padded_field))
+    for opponent in game_state['others']:
+        opponent_coord = opponent[3]
+        opponents[opponent_coord[0] + shift, opponent_coord[1] + shift] = opponent[2] + 1
+    opponents = opponents[left:right + 1, top:bottom + 1]
+    return np.stack([walls, crates, coins, bombs, explosions, player, opponents])

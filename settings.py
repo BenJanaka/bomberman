@@ -5,11 +5,11 @@ from fallbacks import pygame
 # Game properties
 COLS = 17
 ROWS = 17
-CRATE_DENSITY = 0.05
+CRATE_DENSITY = 0
 MAX_AGENTS = 1
 
 # Round properties
-MAX_STEPS = 100
+MAX_STEPS = 80
 
 # GUI properties
 GRID_SIZE = 30

@@ -6,6 +6,7 @@
 
 \usepackage[ngerman, english]{babel}
 \usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
 
 \usepackage{cite}
 %\usepackage[hidelinks]{hyperref}
@@ -31,8 +32,25 @@
 	
 	The state-value function $Q(s, a)$ is represented by a table with dimensions $\lvert s \lvert \times \lvert a \lvert $. Since in practise there are too many possible states to store the whole matrix or to get enough training data, the action-value function can instead be learned by regression. For function approximation we use a neural network and the error is minimized by gradient descent. \cite{Lecture}
 	
-	\section{Training}
+	\section*{Training}
 	Before or while he learns to bomb crates away, the agent has to learn not to blow himself up.
+	
+	\section*{Related Work}
+	Learning how to play Bomberman with Deep Reinforcement and Imitation Learning. Ícaro Goulart, Aline Paes, and Esteban Clua, 2019 \cite{GoulartBomberman}
+	
+	Outplaying humans in bomberman using Deep Q-learning. Frank de Morrée, Ida Stoustrup and Iestyn Watkin, 2019 \cite{AlanPresentation}
+	
+	Multi-Agent Strategies for Pommerman. Dhruv Shah, Nihal Singh, Chinmay Talegaonkar, 2019 \cite{Pommerman}
+	
+	Pommerman Fight: A Detailed Analysis of Reinforcement Algorithms. Bin Chen, Jiarong Qiu, Sairam Kamal Raj, Shuwei Shi, Wei Cheng, 2020 \cite{PommAnalysis}
+	
+	Beating Bomberman with Artificial Intelligence. Juarez Monteiro, Roger Granada, Rafael C. Pinto, Rodrigo C. Barros, 2018 \cite{BeatBomberman2018}
+	
+	Exploration Methods for Connectionist Q-Learning in Bomberman. Joseph Groot Kormelink, Madalina M. Drugan and Marco A. Wiering, 2018 \cite{ExploreConnectionistQLearning}
+	
+	MORE GENERAL
+	
+	\cite{DeepQNet}
 	
 	\newpage
 	
@@ -91,6 +109,6 @@
 	\subsection*{Target network}
 	"We are using the same Q function for calculating the target value and the predicted value. In the preceding equation, you can see the same weights  are used for both target Q and predicted Q. Since the same network is calculating the predicted value and target value, there could be a lot of divergence between these two. To avoid this problem, we use a separate network called a target network for calculating the target value." \cite{UBHD-68505368}
 	
-	\bibliographystyle{abbrv}
+	\bibliographystyle{plain}
 	\bibliography{bibfile}
 \end{document}
