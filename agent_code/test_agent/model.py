@@ -10,7 +10,7 @@ class LinearQNet(nn.Module):
         super().__init__()
 
         self.conv = nn.Sequential(
-            nn.Conv2d(in_channels=7, out_channels=64, kernel_size=5, stride=1),
+            nn.Conv2d(in_channels=7, out_channels=64, kernel_size=5, stride=1), #größeren Kernel, padding
             nn.MaxPool2d(2),
             nn.GroupNorm(4, 64),
             nn.CELU(),
@@ -19,7 +19,7 @@ class LinearQNet(nn.Module):
             nn.GroupNorm(4, 128),
             nn.CELU(),
         )
-        self.linear1 = nn.Linear(5*5*128, 256)
+        self.linear1 = nn.Linear(5*5*128, 256) # 512
         self.linear2 = nn.Linear(256, output_size)
         self.dropout = nn.Dropout(0.1)
 
