@@ -336,7 +336,7 @@ class BombeRLeWorld(GenericWorld):
         # Liane: random start position
         while True:
             (x, y) = np.random.randint(1, 16, 2)
-            if self.arena[x, y] == 0:
+            if self.arena[x, y] == 0: # and self.arena[x, y] != 1:
                 start_positions[-1] = (x, y)
                 break
 

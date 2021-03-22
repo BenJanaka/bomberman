@@ -28,9 +28,9 @@ class LinearQNet(nn.Module):
         x = self.conv(x)
         x = x.view((-1, 5 * 5 * 128))
         x = torch.sigmoid(self.linear1(x))
-        x = self.dropout(x)
+        # x = self.dropout(x)
         x = self.linear2(x)
-        x = self.dropout(x)
+        # x = self.dropout(x)
         return x # output must be in same order of mag as rewards -> no activation for output
 
     def save(self, optimizer, score, path):

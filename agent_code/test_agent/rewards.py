@@ -114,26 +114,26 @@ def reward_from_events(self, events):
     Rewards your agent get so as to en/discourage certain behavior.
     """
     game_rewards = {
-        e.GOT_KILLED: 0,
+        e.GOT_KILLED: -200,
         e.SURVIVED_ROUND: 0,
         e.OPPONENT_ELIMINATED: 0,
 
-        e.BOMB_DROPPED: -50,
-        # PLACED_BOMB_NEXT_TO_CRATE see below
+        e.BOMB_DROPPED: -5,
+        # PLACED_BOMB_NEXT_TO_CRATE_n 10 + 5 * n, see below
         e.BOMB_EXPLODED: 0,
-        DEAD_END: 0,
+        DEAD_END: -30,
         e.KILLED_SELF: -100,
-        e.KILLED_OPPONENT: 0,
+        e.KILLED_OPPONENT: 200,
         SURVIVED_OWN_BOMB: 0,
-        e.CRATE_DESTROYED: 30,
+        e.CRATE_DESTROYED: 50,
         e.COIN_FOUND: 0,
 
-        e.COIN_COLLECTED: 300,
+        e.COIN_COLLECTED: 80,
         COLLECTED_THIRD_OR_HIGHER_COIN: 0,
 
         e.INVALID_ACTION: -50,
         PERFORMED_SAME_INVALID_ACTION_TWICE: 0,
-        e.WAITED: -30,
+        e.WAITED: -5,
         e.MOVED_LEFT: -1,
         e.MOVED_RIGHT: -1,
         e.MOVED_UP: -1,
@@ -155,6 +155,6 @@ def reward_from_events(self, events):
             reward_sum += game_rewards[event]
         if "PLACED_BOMB_NEXT_TO_CRATE" in event:
             n_crates = int(event[-1])
-            reward_sum += 50 + 5 * n_crates
+            reward_sum += 10 + 5 * n_crates
     self.logger.info(f"Awarded {reward_sum} for events {', '.join(events)}")
     return reward_sum
