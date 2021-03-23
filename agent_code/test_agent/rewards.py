@@ -124,7 +124,7 @@ def reward_from_events(self, events):
         DEAD_END: -30,
         e.KILLED_SELF: -100,
         e.KILLED_OPPONENT: 200,
-        SURVIVED_OWN_BOMB: 0,
+        SURVIVED_OWN_BOMB: 1,
         e.CRATE_DESTROYED: 50,
         e.COIN_FOUND: 0,
 
@@ -133,7 +133,7 @@ def reward_from_events(self, events):
 
         e.INVALID_ACTION: -50,
         PERFORMED_SAME_INVALID_ACTION_TWICE: 0,
-        e.WAITED: -5,
+        e.WAITED: -10,
         e.MOVED_LEFT: -1,
         e.MOVED_RIGHT: -1,
         e.MOVED_UP: -1,

@@ -18,7 +18,13 @@
 
 
 \begin{document}
-	\section*{Deep Q-Learning}
+	
+	\tableofcontents
+	
+	\chapter{Theory}
+	
+	
+	\section{Deep Q-Learning}
 	The update rule of the Q-learning algorithm is given by
 	\begin{equation}
 	Q_{updated}(s,a) = Q(s,a) + \alpha\left[R(s,a) + \gamma \, max_{a^{\prime}} Q\left(s^{\prime}\right) - Q(s,a)\right]
@@ -32,10 +38,24 @@
 	
 	The state-value function $Q(s, a)$ is represented by a table with dimensions $\lvert s \lvert \times \lvert a \lvert $. Since in practise there are too many possible states to store the whole matrix or to get enough training data, the action-value function can instead be learned by regression. For function approximation we use a neural network and the error is minimized by gradient descent. \cite{Lecture}
 	
-	\section*{Training}
-	Before or while he learns to bomb crates away, the agent has to learn not to blow himself up.
+	\chapter{Network buildup}
 	
-	\section*{Related Work}
+	\section{Reinforcement learning}
+	
+	\section{Exploration exploitation trade-off}
+	
+	\section{Convolutional Neural Networks}
+	
+	\section{Feature selection}
+	
+	\section{Rewards (+ newly introduced events)}
+	
+	\section{Loss function}
+	
+	\chapter{Other approximations that didnt work}
+	
+	
+	\chapter{Related Work}
 	Learning how to play Bomberman with Deep Reinforcement and Imitation Learning. Ícaro Goulart, Aline Paes, and Esteban Clua, 2019 \cite{GoulartBomberman}
 	
 	Outplaying humans in bomberman using Deep Q-learning. Frank de Morrée, Ida Stoustrup and Iestyn Watkin, 2019 \cite{AlanPresentation}
@@ -52,7 +72,21 @@
 	
 	\cite{DeepQNet}
 	
+	\chapter{Training}
+	Before or while he learns to bomb crates away, the agent has to learn not to blow himself up.
+	
+	\section{Task 1: Collect Coins}
+	
+	\section{Task 2: Bomb crates}
+	
+	\section{Task 3: Kill opponents}
+	
+	
+	\chapter{Results}
+	
 	\newpage
+	
+	\chapter{Discussion}
 	
 	\section*{Notes: What we might do to improve our implementation}
 	$\rightarrow$ Jetzt und/ oder Verbesserungsvorschläge in Diskussion
