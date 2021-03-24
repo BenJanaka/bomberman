@@ -20,7 +20,10 @@ TRANSITION_HISTORY_SIZE = 50000  # keep only ... last transitions
 RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
 BATCH_SIZE = 100
 EXPLORATION_PROB = 0.5
-LEARNING_RATE = 0.0002
+
+
+
+LEARNING_RATE = 0.0001
 GAMMA = 0.8
 
 
