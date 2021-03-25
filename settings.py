@@ -1,10 +1,12 @@
 import logging
+import numpy as np
 
 from fallbacks import pygame
 
 # Game properties
 COLS = 17
 ROWS = 17
+# CRATE_DENSITY = np.random.random()/5
 CRATE_DENSITY = 0
 MAX_AGENTS = 1
 
