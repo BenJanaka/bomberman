@@ -1,0 +1,18 @@
+\babel@toc {english}{}
+\contentsline {chapter}{\numberline {1}Theory}{2}{chapter.1}%
+\contentsline {section}{\numberline {1.1}Deep Q-Learning}{2}{section.1.1}%
+\contentsline {chapter}{\numberline {2}Network buildup}{3}{chapter.2}%
+\contentsline {section}{\numberline {2.1}Reinforcement learning}{3}{section.2.1}%
+\contentsline {section}{\numberline {2.2}Exploration exploitation trade-off}{3}{section.2.2}%
+\contentsline {section}{\numberline {2.3}Convolutional Neural Networks}{3}{section.2.3}%
+\contentsline {section}{\numberline {2.4}Feature selection}{3}{section.2.4}%
+\contentsline {section}{\numberline {2.5}Rewards (+ newly introduced events)}{3}{section.2.5}%
+\contentsline {section}{\numberline {2.6}Loss function}{3}{section.2.6}%
+\contentsline {chapter}{\numberline {3}Other approximations that didnt work}{4}{chapter.3}%
+\contentsline {chapter}{\numberline {4}Related Work}{5}{chapter.4}%
+\contentsline {chapter}{\numberline {5}Training}{6}{chapter.5}%
+\contentsline {section}{\numberline {5.1}Task 1: Collect Coins}{6}{section.5.1}%
+\contentsline {section}{\numberline {5.2}Task 2: Bomb crates}{6}{section.5.2}%
+\contentsline {section}{\numberline {5.3}Task 3: Kill opponents}{6}{section.5.3}%
+\contentsline {chapter}{\numberline {6}Results}{7}{chapter.6}%
+\contentsline {chapter}{\numberline {7}Discussion}{8}{chapter.7}%
