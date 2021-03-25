@@ -7,25 +7,28 @@ import torch.nn as nn
 import torch.optim as optim
 import sys
 import os
-from .callbacks import state_to_features
+from .callbacks import state_to_features, create_model
 from .rewards import append_events, reward_from_events
 from .plot import plot, update_plot_data, init_plot_data
+from torch.utils.tensorboard import SummaryWriter
+from .hyper_parameter_manager import HyperParameterManager
+from .tensorboard_manager import TensorBoardManager
 
 # This is only an example!
 Transition = namedtuple('Transition',
                         ('state', 'action', 'next_state', 'reward'))
 
 # Hyper parameters -- DO modify
-TRANSITION_HISTORY_SIZE = 50000  # keep only ... last transitions
-RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
+TRANSITION_HISTORY_SIZE = 100000  # keep only ... last transitions
 BATCH_SIZE = 100
-EXPLORATION_PROB = 1
-LEARNING_RATE = 0.005
-GAMMA = 0.3
-
+EXPLORATION_PROB = 0.25
+LEARNING_RATE = 0.0005
+GAMMA = 0.8
+TAU = 4
 
 actions_dic = {'UP': 0, 'RIGHT': 1, 'DOWN': 2, 'LEFT': 3, 'WAIT': 4, 'BOMB': 5}
-
+MODE = 'HP-TEST'
+N_TEST_EPOCHS = 100
 
 def setup_training(self):
     """
@@ -37,15 +40,24 @@ def setup_training(self):
     """
     # Example: Setup an array that will note transition tuples
     # (s, a, r, s')
-    self.learning_rate = LEARNING_RATE
-    self.exploration_prob = EXPLORATION_PROB
-    self.gamma = GAMMA
-    self.high_score = float("-inf")
-    self.closest_to_center = 7
-    init_plot_data(self)
-    self.n_suicides = 0
+    self.run_id = 0
+    self.hpm = HyperParameterManager(
+        transition_history_size=TRANSITION_HISTORY_SIZE,
+        batch_size=BATCH_SIZE,
+        exploration_prob=EXPLORATION_PROB,
+        learning_rate=LEARNING_RATE,
+        gamma=GAMMA,
+        tau=TAU,
+        mode=MODE
+    )
 
-    self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
+    self.tbm = TensorBoardManager(self.hpm)
+
+    self.closest_to_center = 7
+    # init_plot_data(self)
+    # self.n_suicides = 0
+
+    self.optimizer = optim.Adam(self.model.parameters(), lr=self.hpm.learning_rate)
     # Load the saved optimizer to continue training
     if not self.overwrite and os.path.isfile(self.path):
         self.optimizer.load_state_dict(self.saved_state['optimizer'])
@@ -53,8 +65,8 @@ def setup_training(self):
         print('Resumed training of loaded model from:', self.path)
     else:
         print('Started training session from scratch')
-    print(f'with learning rate {self.learning_rate} and exploration probability {self.exploration_prob}')
-    print(' round  score  high score          loss  expl prob  suicide rate')
+    print(f'with learning rate {self.hpm.learning_rate} and exploration probability {self.hpm.exploration_prob}')
+    print(' round  score  high score          loss  suicide rate')
 
     # self.criterion = nn.SmoothL1Loss()
     self.criterion = nn.MSELoss()
@@ -82,7 +94,6 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
 
     self.round = new_game_state["round"]
     self.step = new_game_state["step"]
-    self.score = new_game_state['self'][1]
 
     # in the first step, old state is None
     if old_game_state is None:
@@ -96,7 +107,10 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     self.transitions.append(t)
 
     state, action, next_state, reward = t.state, t.action, t.next_state, t.reward
-    self.reward_sum += reward
+
+    self.tbm.reward_sum += reward
+    self.tbm.score = new_game_state['self'][1]
+
     train_step(self, [state], [action], [next_state], [reward])
 
 
@@ -115,9 +129,6 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     self: The same object that is passed to all of your callbacks.
     last_game_state:
     """
-    if "KILLED_SELF" in events:
-        self.n_suicides += 1
-
     self.logger.debug(f'Encountered event(s) {", ".join(map(repr, events))} in final step')
     self.transitions.append(
         Transition(state_to_features(self, last_game_state), last_action, None, reward_from_events(self, events)))
@@ -129,22 +140,34 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
 
     states, actions, next_states, rewards = zip(*batch)
 
-    train_step(self, list(states), list(actions), list(next_states), list(rewards))
+    loss = train_step(self, list(states), list(actions), list(next_states), list(rewards))
 
     # save_model_if_mean_rewards_increased(self)
 
-    update_plot_data(self, len(batch))
-    if self.round % 10 == 0:
-        self.model.save(self.optimizer, self.high_score, self.path)
-        plot(self)
+    # reset the model if the number of games for this test case is reached
+    if self.tbm.current_epoch > N_TEST_EPOCHS:
+        self.model = create_model(self)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=self.hpm.learning_rate)
+        self.tbm.prepare_next_training_instance()
+        self.transitions = []
+
+    if "KILLED_SELF" in events:
+        self.tbm.n_suicides += 1
+
+    # update_plot_data(self, len(batch))
+    if self.tbm.current_epoch % 10 == 0:
+        self.model.save(self.optimizer, self.tbm.high_score, self.path)
+        # plot(self)
+
         # exploit this function for scheduled exploration prob
         # self.exploration_prob = max(0.1, self.exploration_prob - 0.001)
+
+    self.tbm.add_plot_data(loss)
 
     self.closest_to_center = 7
 
 
 def train_step(self, state, action, next_state, reward):
-
     state = torch.tensor(state, dtype=torch.float)
     none_indices = [i for i in range(len(next_state)) if next_state[i] is None]
     done = np.zeros(len(next_state))
@@ -164,7 +187,7 @@ def train_step(self, state, action, next_state, reward):
         if done[idx]:
             Q_new = reward[idx]
         else:
-            Q_new = reward[idx] + self.gamma * torch.max(self.model(next_state[idx].to(self.device)))
+            Q_new = reward[idx] + self.hpm.gamma * torch.max(self.model(next_state[idx].to(self.device)))
         Q[idx][torch.argmax(action[idx]).item()] = Q_new
 
     # Before the backward pass, use the optimizer object to zero all of the
@@ -174,17 +197,17 @@ def train_step(self, state, action, next_state, reward):
     # is called. Checkout docs of torch.autograd.backward for more details.
     self.optimizer.zero_grad()
     loss = self.criterion(Q, Q_pred)
-    self.loss_sum += loss.detach() * len(state)
+    self.tbm.loss_sum += loss.detach() * len(state)
     self.logger.info("Current Loss: {loss}".format(loss=loss))
 
-    sys.stdout.write('\r')
-    sys.stdout.write(f"{str(self.round):>6} {str(self.score):>6} {str(self.high_score):>11.3} "
-        + f"{loss.item():>13.5f} {self.exploration_prob:>10.5f} {self.n_suicides / self.round:>13.5f}")
+    self.tbm.print_state(loss)
 
     # Backward pass: compute gradient of the loss with respect to model parameters
     loss.backward()
     # Calling the step function on an Optimizer makes an update to its parameters
     self.optimizer.step()
+
+    return loss
 
 
 def Action_To_One_Hot(action):
@@ -219,4 +242,3 @@ def save_model_if_mean_rewards_increased(self):
         if score >= self.high_score_:
             self.high_score_ = score
             self.model.save(self.optimizer, score, self.path)
-

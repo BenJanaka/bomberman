@@ -1,3 +1,4 @@
+import math
 import os
 import pickle
 import random
@@ -8,6 +9,22 @@ import numpy as np
 
 VIEW_DIST = 14
 ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
+
+
+def create_model(self):
+    model = LinearQNet(6).to(self.device)
+    for layer in model.children():
+        if isinstance(layer, nn.Linear) or isinstance(layer, nn.Conv2d):
+            layer.bias.data.fill_(0.)
+            nn.init.normal_(layer.weight, mean=0., std=1. / 100)
+    return model
+
+
+def load_model(self):
+    model = LinearQNet(6).to(self.device)
+    self.saved_state = model.load(self.path)
+    model.load_state_dict(self.saved_state['model'])
+    return model
 
 
 def setup(self):
@@ -24,27 +41,19 @@ def setup(self):
 
     :param self: This object is passed to all callbacks and you can set arbitrary values.
     """
-    self.overwrite = False
+    self.overwrite = True
     self.path = "my-saved-model.pt"
     self.view_dist = VIEW_DIST
-
     self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    self.logger.info("running on device {device}".format(device=self.device.type))
 
+    self.logger.info("running on device {device}".format(device=self.device.type))
     if not os.path.isfile(self.path) or self.overwrite:
         self.logger.info("Setting up model from scratch.")
-        self.model = LinearQNet(6).to(self.device)
-        for layer in self.model.children():
-            if isinstance(layer, nn.Linear) or isinstance(layer, nn.Conv2d):
-                layer.bias.data.fill_(0.)
-                nn.init.normal_(layer.weight, mean=0., std=1./100)
-
+        self.model = create_model(self)
     else:
         self.logger.info("Loading model from saved state.")
-        self.model = LinearQNet(6).to(self.device)
-        self.saved_state = self.model.load(self.path)
-        self.model.load_state_dict(self.saved_state['model'])
+        self.model = load_model(self)
         self.logger.info("Loaded high score: {score}".format(score=self.saved_state['score']), )
 
     if self.train:
@@ -66,9 +75,12 @@ def act(self, game_state: dict) -> str:
     assert game_state is not None, "Game state is None"
 
     # Exploration vs exploitation
-    if self.train and random.random() < self.exploration_prob:
-        self.logger.debug("Choosing action purely at random.")
-        return np.random.choice(ACTIONS, p=[0.2, .2, .2, .2, .1, 0.1])
+    if self.train:
+        self.logger.debug("Choosing action based on softmax exploration.")
+        state = torch.tensor(state_to_features(self, game_state), dtype=torch.float)
+        probs = self.model(state.to(self.device), tau=self.hpm.tau)
+        action = torch.multinomial(probs, 1).item()
+        return ACTIONS[action]
     else:
         state = torch.tensor(state_to_features(self, game_state), dtype=torch.float)
         prediction = self.model(state.to(self.device))
@@ -105,13 +117,13 @@ def state_to_features(self, game_state):
 
     self_coord = list(game_state["self"][3])
     # Walls 5x5 around our agent: self.view_dist = 2
-    shift = self.view_dist-1
-    left = self_coord[0]+shift - self.view_dist
-    right = self_coord[0]+shift + self.view_dist
-    bottom = self_coord[1]+shift + self.view_dist
-    top = self_coord[1]+shift - self.view_dist
+    shift = self.view_dist - 1
+    left = self_coord[0] + shift - self.view_dist
+    right = self_coord[0] + shift + self.view_dist
+    bottom = self_coord[1] + shift + self.view_dist
+    top = self_coord[1] + shift - self.view_dist
 
-    padded_field = np.pad(game_state['field'], self.view_dist-1, constant_values=0).astype(np.float64)
+    padded_field = np.pad(game_state['field'], self.view_dist - 1, constant_values=0).astype(np.float64)
     crates = np.zeros(np.shape(padded_field))
     crates[padded_field == 1] = 1
     crates = crates[left:right + 1, top:bottom + 1]
@@ -119,7 +131,7 @@ def state_to_features(self, game_state):
     walls[padded_field == -1] = 1
     walls = walls[left:right + 1, top:bottom + 1]
 
-    explosions = np.pad(game_state['explosion_map'], self.view_dist-1, constant_values=0)
+    explosions = np.pad(game_state['explosion_map'], self.view_dist - 1, constant_values=0)
     # here we exploit that explosions are only one time step lethal
     explosions[explosions == 1] = 0
     explosions = explosions[left:right + 1, top:bottom + 1]
@@ -130,35 +142,35 @@ def state_to_features(self, game_state):
     for bomb in game_state["bombs"]:
         x, y = bomb[0][0] + shift, bomb[0][1] + shift
         timer = bomb[1]
-        bombs[x, y] = - 30 - (4-timer) * 5
+        bombs[x, y] = - 30 - (4 - timer) * 5
         for i in range(1, power + 1):
             if bombs[x + i, y] == -1:
                 break
             if bombs[x + i, y] != 1:
-                bombs[x + i, y] = (-30 + i * 5.) - (4-timer) * 5
+                bombs[x + i, y] = (-30 + i * 5.) - (4 - timer) * 5
 
         for i in range(1, power + 1):
             if bombs[x - i, y] == -1:
                 break
             if bombs[x - i, y] != 1:
-                bombs[x - i, y] = (-30 + i * 5.) - (4-timer) * 5
+                bombs[x - i, y] = (-30 + i * 5.) - (4 - timer) * 5
 
         for i in range(1, power + 1):
             if bombs[x, y + i] == -1:
                 break
             if bombs[x, y + i] != 1:
-                bombs[x, y + i] = (-30 + i * 5.) - (4-timer) * 5
+                bombs[x, y + i] = (-30 + i * 5.) - (4 - timer) * 5
 
         for i in range(1, power + 1):
             if bombs[x, y - i] == -1:
                 break
             if bombs[x, y - i] != 1:
-                bombs[x, y - i] = (-30 + i * 5.) - (4-timer) * 5
+                bombs[x, y - i] = (-30 + i * 5.) - (4 - timer) * 5
     bombs = bombs[left:right + 1, top:bottom + 1]
 
     coins = np.zeros(np.shape(padded_field))
     for coin in game_state["coins"]:
-        coins[coin[0]+shift, coin[1]+shift] = 1
+        coins[coin[0] + shift, coin[1] + shift] = 1
     coins = coins[left:right + 1, top:bottom + 1]
 
     bomb_ready = int(game_state['self'][2])
