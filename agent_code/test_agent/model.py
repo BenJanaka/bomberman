@@ -8,24 +8,27 @@ class LinearQNet(nn.Module):
     def __init__(self, output_size):
         super().__init__()
         self.conv = nn.Sequential(
-            nn.Conv2d(in_channels=7, out_channels=16, kernel_size=7, stride=3),
-            nn.ReLU(),
-            nn.Conv2d(in_channels=16, out_channels=32, kernel_size=5, stride=2),
-            nn.ReLU(),
-            nn.Conv2d(in_channels=32, out_channels=32, kernel_size=2, stride=2),
-            nn.ReLU(),
+            nn.Conv2d(in_channels=7, out_channels=64, kernel_size=5, stride=1),  # größeren Kernel, padding
+            nn.MaxPool2d(2),
+            nn.GroupNorm(4, 64),
+            nn.CELU(),
+            nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, stride=1),
+            nn.MaxPool2d(2),
+            nn.GroupNorm(4, 128),
+            nn.CELU(),
         )
-        self.linear1 = nn.Linear(32, 256)
+        self.linear1 = nn.Linear(5 * 5 * 128, 256)  # 512
         self.linear2 = nn.Linear(256, output_size)
         self.dropout = nn.Dropout(0.1)
 
     def forward(self, x, tau=None):
         x = x.view((-1, 7, 29, 29))
         x = self.conv(x)
-        x = x.view((-1, 32))
+        x = x.view((-1, 5 * 5 * 128))
         x = torch.sigmoid(self.linear1(x))
         # x = self.dropout(x)
         x = self.linear2(x)
+        # x = self.dropout(x)
 
         # return probabilities for exploration
         if tau:

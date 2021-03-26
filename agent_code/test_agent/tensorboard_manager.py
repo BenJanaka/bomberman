@@ -1,11 +1,15 @@
 from torch.utils.tensorboard import SummaryWriter
 import sys
 
+from .hyper_parameter_manager import HyperParameterManager
+
 
 class TensorBoardManager:
-    def __init__(self, hyper_parameter_manager):
+    def __init__(self, hyper_parameter_manager: HyperParameterManager, log_dir: str):
         self.hpm = hyper_parameter_manager
         self.run_id = 0
+        self.log_dir = log_dir
+
         self.summary_writer = self.create_summary_writer()
 
         self.score = None
@@ -19,15 +23,12 @@ class TensorBoardManager:
         self.reset_metric_values()
 
     def create_summary_writer(self):
-        title = "transition_history_size_=_{transition_history_size}_batch_size_=_{batch_size}_" \
-                "learning_rate_=_{learning_rate}_gamma_=_{gamma}_tau_=_{tau}".format(
-            transition_history_size=self.hpm.param_product[self.run_id][0],
-            batch_size=self.hpm.param_product[self.run_id][1],
-            learning_rate=self.hpm.param_product[self.run_id][2],
-            gamma=self.hpm.param_product[self.run_id][3],
-            tau=self.hpm.param_product[self.run_id][4],
-        )
-        sw = SummaryWriter(log_dir='runs/{title}'.format(title=title))
+        if self.run_id > len(self.hpm.param_product):
+            return
+        title = '_'
+        for idx, (key, value) in enumerate(self.hpm.parameters.items()):
+            title += key + '=' + str(self.hpm.param_product[self.run_id][idx]) + '_'
+        sw = SummaryWriter(log_dir=self.log_dir + title)
         return sw
 
     # increment the run id and reset the values

@@ -13,10 +13,10 @@ ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
 
 def create_model(self):
     model = LinearQNet(6).to(self.device)
-    for layer in model.children():
-        if isinstance(layer, nn.Linear) or isinstance(layer, nn.Conv2d):
-            layer.bias.data.fill_(0.)
-            nn.init.normal_(layer.weight, mean=0., std=1. / 100)
+    # for layer in model.children():
+    #     if isinstance(layer, nn.Linear) or isinstance(layer, nn.Conv2d):
+    #         layer.bias.data.fill_(0.)
+    #         nn.init.normal_(layer.weight, mean=0., std=1. / 100)
     return model
 
 
@@ -75,12 +75,9 @@ def act(self, game_state: dict) -> str:
     assert game_state is not None, "Game state is None"
 
     # Exploration vs exploitation
-    if self.train:
-        self.logger.debug("Choosing action based on softmax exploration.")
-        state = torch.tensor(state_to_features(self, game_state), dtype=torch.float)
-        probs = self.model(state.to(self.device), tau=self.hpm.tau)
-        action = torch.multinomial(probs, 1).item()
-        return ACTIONS[action]
+    if self.train and random.random() < self.hpm.exploration_prob:
+        self.logger.debug("Choosing action purely at random.")
+        return np.random.choice(ACTIONS, p=[.15, .15, .15, .15, .2, .2])
     else:
         state = torch.tensor(state_to_features(self, game_state), dtype=torch.float)
         prediction = self.model(state.to(self.device))

@@ -23,13 +23,14 @@ TRANSITION_HISTORY_SIZE = 50000  # keep only ... last transitions
 RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
 BATCH_SIZE = 100
 EXPLORATION_PROB = 1
+EPSILON_DECAY = 0.0001
 LEARNING_RATE = 0.00005
 GAMMA = 0.9
 TAU = 4
 
 actions_dic = {'UP': 0, 'RIGHT': 1, 'DOWN': 2, 'LEFT': 3, 'WAIT': 4, 'BOMB': 5}
 MODE = 'HP-TEST'
-N_TEST_EPOCHS = 100
+N_TEST_EPOCHS = 500
 
 def setup_training(self):
     """
@@ -45,14 +46,14 @@ def setup_training(self):
     self.hpm = HyperParameterManager(
         transition_history_size=TRANSITION_HISTORY_SIZE,
         batch_size=BATCH_SIZE,
-        exploration_prob=EXPLORATION_PROB,
+        epsilon_decay=EPSILON_DECAY,
         learning_rate=LEARNING_RATE,
         gamma=GAMMA,
         tau=TAU,
         mode=MODE
     )
 
-    self.tbm = TensorBoardManager(self.hpm)
+    self.tbm = TensorBoardManager(self.hpm, 'runs/500/')
 
     self.closest_to_center = 7
     # init_plot_data(self)
@@ -145,6 +146,8 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
 
     # save_model_if_mean_rewards_increased(self)
 
+    self.tbm.add_plot_data(loss)
+
     # reset the model if the number of games for this test case is reached
     if self.tbm.current_epoch > N_TEST_EPOCHS:
         self.model = create_model(self)
@@ -161,9 +164,8 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
         # plot(self)
 
         # exploit this function for scheduled exploration prob
-        self.exploration_prob = max(0.1, self.tbm.exploration_prob - 0.001)
+        self.hpm.exploration_prob = max(0.1, self.hpm.exploration_prob - self.hpm.epsilon_decay)
 
-    self.tbm.add_plot_data(loss)
 
     self.closest_to_center = 7
 
