@@ -8,8 +8,9 @@
 \usepackage[utf8]{inputenc}
 
 \usepackage{cite}
-\usepackage[hidelinks]{hyperref}
-\usepackage{url}
+%\usepackage[hidelinks]{hyperref}
+\usepackage{hyperref}
+%\usepackage{url}
 
 \usepackage{graphicx}
 \graphicspath{ {../pictures/} }
@@ -30,6 +31,9 @@
 	
 	The state-value function $Q(s, a)$ is represented by a table with dimensions $\lvert s \lvert \times \lvert a \lvert $. Since in practise there are too many possible states to store the whole matrix or to get enough training data, the action-value function can instead be learned by regression. For function approximation we use a neural network and the error is minimized by gradient descent. \cite{Lecture}
 	
+	\section{Training}
+	Before or while he learns to bomb crates away, the agent has to learn not to blow himself up.
+	
 	\newpage
 	
 	\section*{Notes: What we might do to improve our implementation}
@@ -47,7 +51,7 @@
 	
 	- Lecture Notes: feature pre-processing via PCA
 	
-	- dropout algorithm; https://wandb.ai/authors/ayusht/reports/Dropout-in-PyTorch-An-Example--VmlldzoxNTgwOTE
+	- \href{https://wandb.ai/authors/ayusht/reports/Dropout-in-PyTorch-An-Example--VmlldzoxNTgwOTE}{dropout algorithm}
 	
 	- different activation function
 	

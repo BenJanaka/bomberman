@@ -63,6 +63,7 @@ def act(self, game_state: dict) -> str:
     :param game_state: The dictionary that describes everything on the board.
     :return: The action to take as a string.
     """
+
     assert game_state is not None, "Game state is None"
 
     # Exploration vs exploitation
@@ -91,47 +92,57 @@ def state_to_features(self, game_state):
     padded_field = np.pad(game_state['field'], self.view_dist-1, constant_values=0).astype(np.float64)
     walls = padded_field
     explosions = np.pad(game_state['explosion_map'], self.view_dist-1, constant_values=0)
-    # add pre-explosions for each bomb
+    # add pre-explosions for each bomb if no crate is on field with timer
+    power = 3
     for bomb in game_state["bombs"]:
-        power = 3
         x, y = bomb[0][0] + shift, bomb[0][1] + shift
-        walls[x, y] = - 50
+        timer = bomb[1]
+        walls[x, y] = - 30 - (4-timer) * 5
 
         for i in range(1, power + 1):
             if walls[x + i, y] == -1:
                 break
             if walls[x + i, y] != 1:
-                walls[x + i, y] = -50 + i * 10
+                walls[x + i, y] = (-30 + i * 5.) - (4-timer) * 5
+
         for i in range(1, power + 1):
             if walls[x - i, y] == -1:
                 break
             if walls[x - i, y] != 1:
-                walls[x - i, y] = -50 + i * 10
+                walls[x - i, y] = (-30 + i * 5.) - (4-timer) * 5
+
         for i in range(1, power + 1):
             if walls[x, y + i] == -1:
                 break
             if walls[x, y + i] != 1:
-                walls[x, y + i] = -50 + i * 10
+                walls[x, y + i] = (-30 + i * 5.) - (4-timer) * 5
+
         for i in range(1, power + 1):
             if walls[x, y - i] == -1:
                 break
             if walls[x, y - i] != 1:
-                walls[x, y - i] = -50 + i * 10
-
-    walls -= 10 * explosions
-    walls = walls[left:right + 1, top:bottom + 1]
+                walls[x, y - i] = (-30 + i * 5.) - (4-timer) * 5
 
     coins = np.zeros(np.shape(padded_field))
     for coin in game_state["coins"]:
         coins[coin[0]+shift, coin[1]+shift] = 1
-    coins = coins[left:right+1, top:bottom+1]
+
+    # make crates to -1 so that agent knows not to run against them
+    # and add crates to coin field
+    coins[walls == 1] = -0.1
+    coins = coins[left:right + 1, top:bottom + 1]
+
+    # here we exploit that explosions are only one time step lethal
+    explosions[explosions == 1] = 0
+    walls -= 30 * explosions
+    walls = walls[left:right + 1, top:bottom + 1]
 
     bomb_ready = int(game_state['self'][2])
     players = np.zeros(np.shape(padded_field))
-    players[self_coord[0], self_coord[1]] = - bomb_ready - 1
+    players[self_coord[0] + shift, self_coord[1] + shift] = - bomb_ready - 1
     for opponent in game_state['others']:
         opponent_coord = opponent[3]
-        players[opponent_coord] = opponent[2] + 1
+        players[opponent_coord[0] + shift, opponent_coord[1] + shift] = opponent[2] + 1
     players = players[left:right + 1, top:bottom + 1]
     return np.stack([walls, coins, players])
 

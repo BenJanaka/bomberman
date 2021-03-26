@@ -140,8 +140,9 @@ def reward_from_events(self, events):
         e.BOMB_DROPPED: -1,
         DEAD_END_BOMB_POSITION: -80,
         DEAD_END: -30,
+        # PLACED_BOMB_NEXT_TO_CRATE see below
         e.BOMB_EXPLODED: 0,
-        e.KILLED_SELF: -80,
+        e.KILLED_SELF: -200,
         e.KILLED_OPPONENT: 200,
         SURVIVED_OWN_BOMB: 30,
         e.CRATE_DESTROYED: 20,
@@ -174,6 +175,6 @@ def reward_from_events(self, events):
             reward_sum += game_rewards[event]
         if "PLACED_BOMB_NEXT_TO_CRATE" in event:
             n_crates = int(event[-1])
-            reward_sum += 30 + 5 * n_crates
+            reward_sum += 50 + 5 * n_crates
     self.logger.info(f"Awarded {reward_sum} for events {', '.join(events)}")
     return reward_sum

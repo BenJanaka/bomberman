@@ -44,5 +44,9 @@ class LinearQNet(nn.Module):
     def load(self, path) -> dict:
         if not os.path.exists(path):
             raise Exception("Could not load the model. No Model found")
-        state = torch.load(path)
+        if not torch.cuda.is_available():
+            state = torch.load(path, map_location='cpu')
+        else:
+            state = torch.load(path)
+
         return state
