@@ -8,6 +8,7 @@ import numpy as np
 
 VIEW_DIST = 16
 ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
+ACTION_PROBS = [.15, .15, .15, .15, .2, .2]
 
 
 def setup(self):
@@ -28,9 +29,13 @@ def setup(self):
     self.path = "my-saved-model.pt"
     self.view_dist = VIEW_DIST
 
+    self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    self.logger.info("running on device {device}".format(device=self.device.type))
+
     if not os.path.isfile(self.path) or self.overwrite:
         self.logger.info("Setting up model from scratch.")
-        self.model = LinearQNet(6)
+        self.model = LinearQNet(6).to(self.device)
         for layer in self.model.children():
             if isinstance(layer, nn.Linear) or isinstance(layer, nn.Conv2d):
                 layer.bias.data.fill_(0.)
@@ -38,7 +43,7 @@ def setup(self):
 
     else:
         self.logger.info("Loading model from saved state.")
-        self.model = LinearQNet(6)
+        self.model = LinearQNet(6).to(self.device)
         self.saved_state = self.model.load(self.path)
         self.model.load_state_dict(self.saved_state['model'])
         self.logger.info("Loaded highscore: {score}".format(score=self.saved_state['score']), )
@@ -63,10 +68,10 @@ def act(self, game_state: dict) -> str:
     # Exploration vs exploitation
     if self.train and random.random() < self.exploration_prob:
         self.logger.debug("Choosing action purely at random.")
-        return np.random.choice(ACTIONS, p=[.15, .15, .15, .15, .2, .2])
+        return np.random.choice(ACTIONS, p=ACTION_PROBS)
     else:
         state = torch.tensor(state_to_features(self, game_state), dtype=torch.float)
-        prediction = self.model(state)
+        prediction = self.model(state.to(self.device))
         action = ACTIONS[torch.argmax(prediction).item()]
         self.logger.debug("Querying model for action: {action}".format(action=action))
         return action

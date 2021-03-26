@@ -1,8 +1,17 @@
 import events as e
+import numpy as np
 
 SURVIVED_OWN_BOMB = "SURVIVED_OWN_BOMB"
 COLLECTED_THIRD_OR_HIGHER_COIN = "COLLECTED_THIRD_OR_HIGHER_COIN"
 PERFORMED_SAME_INVALID_ACTION_TWICE = "PERFORMED_SAME_INVALID_ACTION_TWICE"
+
+# the 0 is replaced by the number of crates next to the bomb (3 at most)
+PLACED_BOMB_NEXT_TO_CRATE = "PLACED_BOMB_NEXT_TO_CRATE_0"
+
+# ran into a dead end right after bomb drop
+# only valid if agent plays without opponents
+DEAD_END = 'DEAD_END'
+DEAD_END_BOMB_POSITION = "DEAD_END_BOMB_POSITION"
 
 # rewards are given only once for events:
 MOVED_TOWARDS_CENTER_1, MOVED_TOWARDS_CENTER_2 = "MOVED_TOWARDS_CENTER_1", "MOVED_TOWARDS_CENTER_2"
@@ -23,6 +32,24 @@ def append_events(self, old_game_state, self_action, new_game_state, events):
         last_transition = self.transitions[-1]
         if "INVALID_ACTION" in events and self_action == last_transition.action:
             events.append(PERFORMED_SAME_INVALID_ACTION_TWICE)
+    if self_action == 'BOMB' and len(new_game_state['bombs']) > 0 and e.INVALID_ACTION not in events:
+        bomb_coord = new_game_state['bombs'][0][0]
+        n_crates = 0
+        for position in [new_game_state['field'][bomb_coord[0] + 1, bomb_coord[1]],
+                         new_game_state['field'][bomb_coord[0] - 1, bomb_coord[1]],
+                         new_game_state['field'][bomb_coord[0], bomb_coord[1] + 1],
+                         new_game_state['field'][bomb_coord[0], bomb_coord[1] - 1]]:
+            if position == 1:
+                n_crates += 1
+        if n_crates > 0:
+            PLACED_BOMB_NEXT_TO_CRATE = "PLACED_BOMB_NEXT_TO_CRATE_" + str(int(n_crates))
+            events.append(PLACED_BOMB_NEXT_TO_CRATE)
+    if self_action == "BOMB" and e.INVALID_ACTION not in events:
+        if not can_escape_bomb(new_game_state):
+            events.append(DEAD_END_BOMB_POSITION)
+    if entered_dead_end_after_bombing(self_action, new_game_state, events):
+        events.append(DEAD_END)
+
     # if agents moved towards center:
     # closest point is saved so that a repeated back and forth movement is prevented
     self_coord = new_game_state['self'][3]
@@ -44,24 +71,80 @@ def append_events(self, old_game_state, self_action, new_game_state, events):
     return events
 
 
+def can_escape_bomb(new_game_state):
+    test_game_state = new_game_state.copy()
+    actions = ['DOWN', 'UP', 'RIGHT', 'LEFT']
+    for i, movement in enumerate([[0, 1], [0, -1], [1, 0], [-1, 0]]):
+        x, y = new_game_state['self'][3][0] + movement[0], new_game_state['self'][3][1] + movement[1]
+        test_game_state['self'] = (new_game_state['self'][0], new_game_state['self'][1], new_game_state['self'][2], (x, y))
+        if new_game_state['field'][test_game_state['self'][3]] == 0: # move is valid
+            timer = new_game_state['bombs'][0][1] - 1
+            test_game_state['bombs'] = [(new_game_state['bombs'][0][0], timer)]
+            if not entered_dead_end_after_bombing(actions[i], test_game_state, []):
+                return True
+    return False
+
+
+def entered_dead_end_after_bombing(self_action, state, events):
+    assert len(state['bombs']) <= 1, "More than one bomb. Turn off reward for dead ends."
+    # if LAST action was BOMB:
+    if len(state['bombs']) > 0 and state['bombs'][0][1] == 2:
+        coord = state['self'][3]
+        if self_action in ['UP', 'DOWN'] and e.INVALID_ACTION not in events:
+            down = 1
+            if self_action == 'UP':
+                down = -1
+            while True:
+                can_not_escape_to_side = state['field'][coord[0]+1, coord[1] + down - np.sign(down)] in [1, -1] and \
+                                         state['field'][coord[0]-1, coord[1] + down - np.sign(down)] in [1, -1]
+                if can_not_escape_to_side:
+                    can_not_escape_to_front = state['field'][coord[0], coord[1] + down] in [1, -1]
+                    if can_not_escape_to_front:
+                        return True
+                    else:
+                        down += np.sign(down)
+                        if abs(down) > 3:
+                            break
+                else:
+                    break
+        elif self_action in ['RIGHT', 'LEFT'] and e.INVALID_ACTION not in events:
+            right = 1
+            if self_action == 'LEFT':
+                right = -1
+            while True:
+                can_not_escape_to_side = state['field'][coord[0] + right - np.sign(right), coord[1] + 1] in [1, -1] and \
+                                         state['field'][coord[0] + right - np.sign(right), coord[1] - 1] in [1, -1]
+                if can_not_escape_to_side:
+                    can_not_escape_to_front = state['field'][coord[0] + right, coord[1]] in [1, -1]
+                    if can_not_escape_to_front:
+                        return True
+                    else:
+                        right += np.sign(right)
+                        if abs(right) > 3:
+                            break
+                else:
+                    break
+    else:
+        return False
+
+
 def reward_from_events(self, events):
     """
-    *This is not a required function, but an idea to structure your code.*
-
-    Here you can modify the rewards your agent get so as to en/discourage
-    certain behavior.
+    Rewards your agent get so as to en/discourage certain behavior.
     """
     game_rewards = {
-        e.GOT_KILLED: -10,
+        e.GOT_KILLED: -200,
         e.SURVIVED_ROUND: 0,
         e.OPPONENT_ELIMINATED: 0,
 
-        e.BOMB_DROPPED: 10,
+        e.BOMB_DROPPED: -1,
+        DEAD_END_BOMB_POSITION: -80,
+        DEAD_END: -30,
         e.BOMB_EXPLODED: 0,
         e.KILLED_SELF: -80,
         e.KILLED_OPPONENT: 200,
         SURVIVED_OWN_BOMB: 30,
-        e.CRATE_DESTROYED: 80,
+        e.CRATE_DESTROYED: 20,
         e.COIN_FOUND: 0,
 
         e.COIN_COLLECTED: 100,
@@ -89,5 +172,8 @@ def reward_from_events(self, events):
     for event in events:
         if event in game_rewards:
             reward_sum += game_rewards[event]
+        if "PLACED_BOMB_NEXT_TO_CRATE" in event:
+            n_crates = int(event[-1])
+            reward_sum += 30 + 5 * n_crates
     self.logger.info(f"Awarded {reward_sum} for events {', '.join(events)}")
     return reward_sum
