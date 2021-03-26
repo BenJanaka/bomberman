@@ -8,6 +8,7 @@ import numpy as np
 
 VIEW_DIST = 14
 ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
+ACTION_PROBS = [.15, .15, .15, .15, .2, .2]
 
 
 def setup(self):
@@ -68,7 +69,7 @@ def act(self, game_state: dict) -> str:
     # Exploration vs exploitation
     if self.train and random.random() < self.exploration_prob:
         self.logger.debug("Choosing action purely at random.")
-        return np.random.choice(ACTIONS, p=[0.2, .2, .2, .2, .1, 0.1])
+        return np.random.choice(ACTIONS, p=ACTION_PROBS)
     else:
         state = torch.tensor(state_to_features(self, game_state), dtype=torch.float)
         prediction = self.model(state.to(self.device))

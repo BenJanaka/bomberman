@@ -11,6 +11,7 @@ PLACED_BOMB_NEXT_TO_CRATE = "PLACED_BOMB_NEXT_TO_CRATE_0"
 # ran into a dead end right after bomb drop
 # only valid if agent plays without opponents
 DEAD_END = 'DEAD_END'
+DEAD_END_BOMB_POSITION = "DEAD_END_BOMB_POSITION"
 
 # rewards are given only once for events:
 MOVED_TOWARDS_CENTER_1, MOVED_TOWARDS_CENTER_2 = "MOVED_TOWARDS_CENTER_1", "MOVED_TOWARDS_CENTER_2"
@@ -43,6 +44,9 @@ def append_events(self, old_game_state, self_action, new_game_state, events):
         if n_crates > 0:
             PLACED_BOMB_NEXT_TO_CRATE = "PLACED_BOMB_NEXT_TO_CRATE_" + str(int(n_crates))
             events.append(PLACED_BOMB_NEXT_TO_CRATE)
+    if self_action == "BOMB" and e.INVALID_ACTION not in events:
+        if not can_escape_bomb(new_game_state):
+            events.append(DEAD_END_BOMB_POSITION)
     if entered_dead_end_after_bombing(self_action, new_game_state, events):
         events.append(DEAD_END)
 
@@ -67,19 +71,34 @@ def append_events(self, old_game_state, self_action, new_game_state, events):
     return events
 
 
-def entered_dead_end_after_bombing(self_action, new_game_state, events):
+def can_escape_bomb(new_game_state):
+    test_game_state = new_game_state.copy()
+    actions = ['DOWN', 'UP', 'RIGHT', 'LEFT']
+    for i, movement in enumerate([[0, 1], [0, -1], [1, 0], [-1, 0]]):
+        x, y = new_game_state['self'][3][0] + movement[0], new_game_state['self'][3][1] + movement[1]
+        test_game_state['self'] = (new_game_state['self'][0], new_game_state['self'][1], new_game_state['self'][2], (x, y))
+        if new_game_state['field'][test_game_state['self'][3]] == 0: # move is valid
+            timer = new_game_state['bombs'][0][1] - 1
+            test_game_state['bombs'] = [(new_game_state['bombs'][0][0], timer)]
+            if not entered_dead_end_after_bombing(actions[i], test_game_state, []):
+                return True
+    return False
+
+
+def entered_dead_end_after_bombing(self_action, state, events):
+    assert len(state['bombs']) <= 1, "More than one bomb. Turn off reward for dead ends."
     # if LAST action was BOMB:
-    if len(new_game_state['bombs']) > 0 and new_game_state['bombs'][0][1] == 2:
-        coord = new_game_state['self'][3]
+    if len(state['bombs']) > 0 and state['bombs'][0][1] == 2:
+        coord = state['self'][3]
         if self_action in ['UP', 'DOWN'] and e.INVALID_ACTION not in events:
             down = 1
             if self_action == 'UP':
                 down = -1
             while True:
-                can_not_escape_to_side = new_game_state['field'][coord[0]+1, coord[1] + down - np.sign(down)] in [1, -1] and \
-                                         new_game_state['field'][coord[0]-1, coord[1] + down - np.sign(down)] in [1, -1]
+                can_not_escape_to_side = state['field'][coord[0]+1, coord[1] + down - np.sign(down)] in [1, -1] and \
+                                         state['field'][coord[0]-1, coord[1] + down - np.sign(down)] in [1, -1]
                 if can_not_escape_to_side:
-                    can_not_escape_to_front = new_game_state['field'][coord[0], coord[1] + down] in [1, -1]
+                    can_not_escape_to_front = state['field'][coord[0], coord[1] + down] in [1, -1]
                     if can_not_escape_to_front:
                         return True
                     else:
@@ -93,10 +112,10 @@ def entered_dead_end_after_bombing(self_action, new_game_state, events):
             if self_action == 'LEFT':
                 right = -1
             while True:
-                can_not_escape_to_side = new_game_state['field'][coord[0] + right - np.sign(right), coord[1] + 1] in [1, -1] and \
-                                         new_game_state['field'][coord[0] + right - np.sign(right), coord[1] - 1] in [1, -1]
+                can_not_escape_to_side = state['field'][coord[0] + right - np.sign(right), coord[1] + 1] in [1, -1] and \
+                                         state['field'][coord[0] + right - np.sign(right), coord[1] - 1] in [1, -1]
                 if can_not_escape_to_side:
-                    can_not_escape_to_front = new_game_state['field'][coord[0] + right, coord[1]] in [1, -1]
+                    can_not_escape_to_front = state['field'][coord[0] + right, coord[1]] in [1, -1]
                     if can_not_escape_to_front:
                         return True
                     else:
@@ -119,6 +138,7 @@ def reward_from_events(self, events):
         e.OPPONENT_ELIMINATED: 0,
 
         e.BOMB_DROPPED: -5,
+        DEAD_END_BOMB_POSITION: -80,
         # PLACED_BOMB_NEXT_TO_CRATE_n 10 + 5 * n, see below
         e.BOMB_EXPLODED: 0,
         DEAD_END: -30,
