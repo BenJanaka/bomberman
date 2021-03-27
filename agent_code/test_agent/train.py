@@ -19,9 +19,9 @@ Transition = namedtuple('Transition',
 TRANSITION_HISTORY_SIZE = 50000  # keep only ... last transitions
 RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
 BATCH_SIZE = 100
-EXPLORATION_PROB = 0.2
+EXPLORATION_PROB = 0.5
 LEARNING_RATE = 0.00004
-GAMMA = 0.95
+GAMMA = 0.99
 
 actions_dic = {'UP': 0, 'RIGHT': 1, 'DOWN': 2, 'LEFT': 3, 'WAIT': 4, 'BOMB': 5}
 
@@ -137,7 +137,7 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
         self.model.save(self.optimizer, self.high_score, self.path)
         plot(self)
         # exploit this function for scheduled exploration prob
-        self.exploration_prob = max(0.1, self.exploration_prob - 0.001)
+        self.exploration_prob = max(0.1, self.exploration_prob - 0.0005)
 
     self.closest_to_center = 7
 

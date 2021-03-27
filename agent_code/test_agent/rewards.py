@@ -137,14 +137,14 @@ def reward_from_events(self, events):
         e.SURVIVED_ROUND: 0,
         e.OPPONENT_ELIMINATED: 0,
 
-        e.BOMB_DROPPED: -1,
+        e.BOMB_DROPPED: -3,
         DEAD_END_BOMB_POSITION: -80,
         DEAD_END: -30,
         # PLACED_BOMB_NEXT_TO_CRATE see below
         e.BOMB_EXPLODED: 0,
-        e.KILLED_SELF: -200,
+        e.KILLED_SELF: -300,
         e.KILLED_OPPONENT: 200,
-        SURVIVED_OWN_BOMB: 30,
+        SURVIVED_OWN_BOMB: 5,
         e.CRATE_DESTROYED: 20,
         e.COIN_FOUND: 0,
 
