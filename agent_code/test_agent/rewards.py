@@ -52,8 +52,8 @@ def append_events(self, old_game_state, self_action, new_game_state, events):
     if entered_dead_end_after_bombing(self_action, new_game_state, events):
         events.append(DEAD_END)
 
-    if agents moved towards center:
-    closest point is saved so that a repeated back and forth movement is prevented
+    #if agents moved towards center:
+    # closest point is saved so that a repeated back and forth movement is prevented
     self_coord = new_game_state['self'][3]
     if abs(self_coord[0] - 8) < self.closest_to_center and abs(self_coord[1] - 8) < self.closest_to_center:
         if self.closest_to_center == 6:
