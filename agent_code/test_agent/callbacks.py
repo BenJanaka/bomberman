@@ -76,9 +76,12 @@ def act(self, game_state: dict) -> str:
     assert game_state is not None, "Game state is None"
 
     # Exploration vs exploitation
-    if self.train and random.random() < self.hpm.exploration_prob:
-        self.logger.debug("Choosing action purely at random.")
-        return np.random.choice(ACTIONS, p=ACTION_PROBS)
+    if self.train:
+        self.logger.debug("Choosing action based on softmax exploration.")
+        state = torch.tensor(state_to_features(self, game_state), dtype=torch.float)
+        probs = self.model(state.to(self.device), tau=self.hpm.tau)
+        action = torch.multinomial(probs, 1).item()
+        return ACTIONS[action]
     else:
         state = torch.tensor(state_to_features(self, game_state), dtype=torch.float)
         prediction = self.model(state.to(self.device))

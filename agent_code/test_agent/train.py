@@ -30,7 +30,7 @@ TAU = 4
 
 actions_dic = {'UP': 0, 'RIGHT': 1, 'DOWN': 2, 'LEFT': 3, 'WAIT': 4, 'BOMB': 5}
 MODE = 'HP-TEST'
-N_TEST_EPOCHS = 500
+N_TEST_EPOCHS = 300
 
 def setup_training(self):
     """
@@ -53,7 +53,7 @@ def setup_training(self):
         mode=MODE
     )
 
-    self.tbm = TensorBoardManager(self.hpm, 'runs/500/')
+    self.tbm = TensorBoardManager(self.hpm, 'runs/300/')
 
     self.closest_to_center = 7
     # init_plot_data(self)

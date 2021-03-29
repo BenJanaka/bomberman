@@ -43,3 +43,10 @@ class HyperParameterManager:
         self.gamma = gamma
         self.tau = tau
         self.exploration_prob = exploration_prob
+
+    def next_params(self, run_id):
+        self.transition_history_size = self.param_product[run_id][0]
+        self.batch_size = self.param_product[run_id][1]
+        self.learning_rate = self.param_product[run_id][2]
+        self.gamma = self.param_product[run_id][3]
+        self.tau = self.param_product[run_id][4]

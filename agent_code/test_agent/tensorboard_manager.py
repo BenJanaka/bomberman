@@ -29,6 +29,7 @@ class TensorBoardManager:
         for idx, (key, value) in enumerate(self.hpm.parameters.items()):
             title += key + '=' + str(self.hpm.param_product[self.run_id][idx]) + '_'
         sw = SummaryWriter(log_dir=self.log_dir + title)
+        self.hpm.next_params(self.run_id)
         return sw
 
     # increment the run id and reset the values

@@ -207,9 +207,9 @@ def reward_from_events(self, events):
         e.MOVED_UP: -1,
         e.MOVED_DOWN: -1,
 
-        IN_DANGER: -10,
-        MOVED_TOWARDS_CLOSEST_COIN: 10,
-        MOVED_AWAY_FROM_CLOSEST_COIN: -11
+        IN_DANGER: 0,
+        MOVED_TOWARDS_CLOSEST_COIN: 0,
+        MOVED_AWAY_FROM_CLOSEST_COIN: 0
         # rewards only make sense if agent starts at field edge:
         # MOVED_TOWARDS_CENTER_6: 10,
         # MOVED_TOWARDS_CENTER_5: 11,
