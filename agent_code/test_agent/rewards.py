@@ -139,7 +139,7 @@ def reward_from_events(self, events):
 
         e.BOMB_DROPPED: -3,
         DEAD_END_BOMB_POSITION: -200,
-        DEAD_END: -30,
+        DEAD_END: -20,
         # PLACED_BOMB_NEXT_TO_CRATE see below
         e.BOMB_EXPLODED: 0,
         e.KILLED_SELF: -500,
@@ -148,7 +148,7 @@ def reward_from_events(self, events):
         e.CRATE_DESTROYED: 20,
         e.COIN_FOUND: 0,
 
-        e.COIN_COLLECTED: 100,
+        e.COIN_COLLECTED: 110,
         COLLECTED_THIRD_OR_HIGHER_COIN: 0,
 
         e.INVALID_ACTION: -10,

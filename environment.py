@@ -320,7 +320,9 @@ class BombeRLeWorld(GenericWorld):
         self.round_id = f'Replay {datetime.now().strftime("%Y-%m-%d %H-%M-%S")}'
 
         # Arena with wall and crate layout
-        self.arena = (np.random.rand(s.COLS, s.ROWS) < s.CRATE_DENSITY).astype(int)
+        # Liane
+        self.arena = (np.random.rand(s.COLS, s.ROWS) < np.random.choice([0, np.random.random() * s.CRATE_DENSITY], p=[0.1, 0.9])).astype(int)
+        # self.arena = (np.random.rand(s.COLS, s.ROWS) < s.CRATE_DENSITY).astype(int)
         self.arena[:1, :] = -1
         self.arena[-1:, :] = -1
         self.arena[:, :1] = -1

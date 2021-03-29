@@ -1,0 +1,1 @@
+C:\Users\Liane\PycharmProjects\venv\Scripts\python.exe main.py play --agents test_agent rule_based_agent rule_based_agent peaceful_agent
