@@ -18,7 +18,9 @@ MOVED_TOWARDS_CENTER_1, MOVED_TOWARDS_CENTER_2 = "MOVED_TOWARDS_CENTER_1", "MOVE
 MOVED_TOWARDS_CENTER_3, MOVED_TOWARDS_CENTER_4 = "MOVED_TOWARDS_CENTER_3", "MOVED_TOWARDS_CENTER_4"
 MOVED_TOWARDS_CENTER_5, MOVED_TOWARDS_CENTER_6 = "MOVED_TOWARDS_CENTER_5", "MOVED_TOWARDS_CENTER_6"
 REACHED_CENTER = "REACHED_CENTER"
-
+IN_DANGER = "IN_DANGER"
+MOVED_TOWARDS_CLOSEST_COIN = 'MOVED_TOWARDS_CLOSEST_COIN'
+MOVED_AWAY_FROM_CLOSEST_COIN = 'MOVED_AWAY_FROM_CLOSEST_COIN'
 
 def append_events(self, old_game_state, self_action, new_game_state, events):
     # reward for placing a bomb and not running into its explosion
@@ -68,6 +70,52 @@ def append_events(self, old_game_state, self_action, new_game_state, events):
             events.append(MOVED_TOWARDS_CENTER_1)
         elif self.closest_to_center == 0:
             events.append(REACHED_CENTER)
+
+    # check if our agent is in dangerous area
+    field = new_game_state['field']
+    player_id = 42
+    field[new_game_state['self'][3][0]][new_game_state['self'][3][1]] = player_id
+    field = np.pad(field, pad_width=2, mode='constant', constant_values=-1)
+    in_danger = False
+    for bomb in new_game_state['bombs']:
+        bomb_coord = np.array(bomb[0])
+        if bomb_coord[0] == new_game_state['self'][3][0] and bomb_coord[1] == new_game_state['self'][3][1]:
+            in_danger = True
+            break
+        else:
+            bomb_coord = bomb_coord + [2, 2]
+            t = np.ones((7, 7))
+            t[:, 3] = 0
+            t[3, :] = 0
+            explosion_matrix = field[bomb_coord[0] - 3:bomb_coord[0] + 4, bomb_coord[1] - 3:bomb_coord[1] + 4]
+            is_dangerous = (explosion_matrix == t).astype(int)
+            is_dangerous[is_dangerous == 0] = -1
+            in_danger = (field[bomb_coord[0] - 3:bomb_coord[0] + 4,
+                         bomb_coord[1] - 3:bomb_coord[1] + 4] == player_id) == is_dangerous
+            in_danger = np.any(in_danger)
+    if in_danger:
+        events.append(IN_DANGER)
+
+
+    # Check if agent moved to the closest coin on the field
+    own_pos = np.array(new_game_state['self'][3])
+
+    old_coins = old_game_state['coins']
+    new_coins = new_game_state['coins']
+
+    if old_coins and new_coins:
+
+        old_distances = np.linalg.norm(own_pos - old_coins, axis=1)
+        old_nearest = old_distances.argmin()
+
+        new_distances = np.linalg.norm(own_pos - new_coins, axis=1)
+        new_nearest = new_distances.argmin()
+
+        if new_nearest == old_nearest:
+            if new_distances[new_nearest] < old_distances[old_nearest]:
+                events.append(MOVED_TOWARDS_CLOSEST_COIN)
+            elif new_distances[new_nearest] > old_distances[old_nearest]:
+                events.append(MOVED_AWAY_FROM_CLOSEST_COIN)
     return events
 
 

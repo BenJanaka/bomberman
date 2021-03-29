@@ -1,1 +1,17 @@
-\BOOKMARK [1][-]{section.0.1}{Training}{}% 1
+\BOOKMARK [0][-]{chapter.1}{Theory}{}% 1
+\BOOKMARK [1][-]{section.1.1}{Deep Q-Learning}{chapter.1}% 2
+\BOOKMARK [0][-]{chapter.2}{Network buildup}{}% 3
+\BOOKMARK [1][-]{section.2.1}{Reinforcement learning}{chapter.2}% 4
+\BOOKMARK [1][-]{section.2.2}{Exploration exploitation trade-off}{chapter.2}% 5
+\BOOKMARK [1][-]{section.2.3}{Convolutional Neural Networks}{chapter.2}% 6
+\BOOKMARK [1][-]{section.2.4}{Feature selection}{chapter.2}% 7
+\BOOKMARK [1][-]{section.2.5}{Rewards \(+ newly introduced events\)}{chapter.2}% 8
+\BOOKMARK [1][-]{section.2.6}{Loss function}{chapter.2}% 9
+\BOOKMARK [0][-]{chapter.3}{Other approximations that didnt work}{}% 10
+\BOOKMARK [0][-]{chapter.4}{Related Work}{}% 11
+\BOOKMARK [0][-]{chapter.5}{Training}{}% 12
+\BOOKMARK [1][-]{section.5.1}{Task 1: Collect Coins}{chapter.5}% 13
+\BOOKMARK [1][-]{section.5.2}{Task 2: Bomb crates}{chapter.5}% 14
+\BOOKMARK [1][-]{section.5.3}{Task 3: Kill opponents}{chapter.5}% 15
+\BOOKMARK [0][-]{chapter.6}{Results}{}% 16
+\BOOKMARK [0][-]{chapter.7}{Discussion}{}% 17

@@ -1,3 +1,4 @@
+import math
 import os
 import pickle
 import random
@@ -9,6 +10,22 @@ import numpy as np
 VIEW_DIST = 16
 ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
 ACTION_PROBS = [.15, .15, .15, .15, .2, .2]
+
+
+def create_model(self):
+    model = LinearQNet(6).to(self.device)
+    # for layer in model.children():
+    #     if isinstance(layer, nn.Linear) or isinstance(layer, nn.Conv2d):
+    #         layer.bias.data.fill_(0.)
+    #         nn.init.normal_(layer.weight, mean=0., std=1. / 100)
+    return model
+
+
+def load_model(self):
+    model = LinearQNet(6).to(self.device)
+    self.saved_state = model.load(self.path)
+    model.load_state_dict(self.saved_state['model'])
+    return model
 
 
 def setup(self):
@@ -28,25 +45,17 @@ def setup(self):
     self.overwrite = False
     self.path = "my-saved-model.pt"
     self.view_dist = VIEW_DIST
-
     self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    self.logger.info("running on device {device}".format(device=self.device.type))
 
+    self.logger.info("running on device {device}".format(device=self.device.type))
     if not os.path.isfile(self.path) or self.overwrite:
         self.logger.info("Setting up model from scratch.")
-        self.model = LinearQNet(6).to(self.device)
-        for layer in self.model.children():
-            if isinstance(layer, nn.Linear) or isinstance(layer, nn.Conv2d):
-                layer.bias.data.fill_(0.)
-                nn.init.normal_(layer.weight, mean=0., std=1./100)
-
+        self.model = create_model(self)
     else:
         self.logger.info("Loading model from saved state.")
-        self.model = LinearQNet(6).to(self.device)
-        self.saved_state = self.model.load(self.path)
-        self.model.load_state_dict(self.saved_state['model'])
-        self.logger.info("Loaded highscore: {score}".format(score=self.saved_state['score']), )
+        self.model = load_model(self)
+        self.logger.info("Loaded high score: {score}".format(score=self.saved_state['score']), )
 
     if self.train:
         self.model.train()
@@ -67,9 +76,12 @@ def act(self, game_state: dict) -> str:
     assert game_state is not None, "Game state is None"
 
     # Exploration vs exploitation
-    if self.train and random.random() < self.exploration_prob:
-        self.logger.debug("Choosing action purely at random.")
-        return np.random.choice(ACTIONS, p=ACTION_PROBS)
+    if self.train:
+        self.logger.debug("Choosing action based on softmax exploration.")
+        state = torch.tensor(state_to_features(self, game_state), dtype=torch.float)
+        probs = self.model(state.to(self.device), tau=self.hpm.tau)
+        action = torch.multinomial(probs, 1).item()
+        return ACTIONS[action]
     else:
         state = torch.tensor(state_to_features(self, game_state), dtype=torch.float)
         prediction = self.model(state.to(self.device))

@@ -334,11 +334,11 @@ class BombeRLeWorld(GenericWorld):
         start_positions = [(1, 1), (1, s.ROWS - 2), (s.COLS - 2, 1), (s.COLS - 2, s.ROWS - 2)]
         random.shuffle(start_positions)
         # Liane: random start position
-        # while True:
-        #     (x, y) = np.random.randint(1, 16, 2)
-        #     if self.arena[x, y] == 0:
-        #         start_positions[-1] = (x, y)
-        #         break
+        while True:
+            (x, y) = np.random.randint(1, 16, 2)
+            if self.arena[x, y] == 0: # and self.arena[x, y] != 1:
+                start_positions[-1] = (x, y)
+                break
 
         for (x, y) in start_positions:
             for (xx, yy) in [(x, y), (x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)]:
