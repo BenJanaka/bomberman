@@ -178,28 +178,30 @@ def entered_dead_end_after_bombing(self_action, state, events):
 
 def reward_from_events(self, events):
     """
-    Rewards your agent get so as to en/discourage certain behavior.
+    *This is not a required function, but an idea to structure your code.*
+
+    Here you can modify the rewards your agent get so as to en/discourage
+    certain behavior.
     """
     game_rewards = {
-        e.GOT_KILLED: -200,
+        e.GOT_KILLED: 0,
         e.SURVIVED_ROUND: 0,
         e.OPPONENT_ELIMINATED: 0,
 
-        e.BOMB_DROPPED: -3,
-        DEAD_END_BOMB_POSITION: -200,
-        DEAD_END: -30,
-        # PLACED_BOMB_NEXT_TO_CRATE see below
+        e.BOMB_DROPPED: 20,
+        PLACED_BOMB_NEXT_TO_CRATE: 50,
         e.BOMB_EXPLODED: 0,
-        e.KILLED_SELF: -500,
-        e.KILLED_OPPONENT: 200,
-        SURVIVED_OWN_BOMB: 5,
+        DEAD_END: 0,
+        e.KILLED_SELF: -100,
+        e.KILLED_OPPONENT: 0,
+        SURVIVED_OWN_BOMB: 50,
         e.CRATE_DESTROYED: 20,
         e.COIN_FOUND: 0,
 
-        e.COIN_COLLECTED: 100,
+        e.COIN_COLLECTED: 80,
         COLLECTED_THIRD_OR_HIGHER_COIN: 0,
 
-        e.INVALID_ACTION: -10,
+        e.INVALID_ACTION: -50,
         PERFORMED_SAME_INVALID_ACTION_TWICE: 0,
         e.WAITED: -10,
         e.MOVED_LEFT: -1,
@@ -220,9 +222,10 @@ def reward_from_events(self, events):
     reward_sum = 0
     for event in events:
         if event in game_rewards:
-            reward_sum += game_rewards[event]
-        if "PLACED_BOMB_NEXT_TO_CRATE" in event:
-            n_crates = int(event[-1])
-            reward_sum += 50 + 5 * n_crates
+            if event == PLACED_BOMB_NEXT_TO_CRATE:
+                n_crates = int(game_rewards[PLACED_BOMB_NEXT_TO_CRATE][-1])
+                reward_sum += 50 * n_crates
+            else:
+                reward_sum += game_rewards[event]
     self.logger.info(f"Awarded {reward_sum} for events {', '.join(events)}")
     return reward_sum

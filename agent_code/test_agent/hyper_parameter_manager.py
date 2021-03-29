@@ -13,11 +13,11 @@ class HyperParameterManager:
                  mode=None):
         if mode == 'HP-TEST':
             self.parameters = dict(
-                transition_history_size=[10000, 100000],
+                transition_history_size=[10000],
                 batch_size=[100, 256],
                 learning_rate=[0.001, 0.0001],
                 gamma=[0.8, 0.9, 0.99],
-                tau=[2, 4]
+                tau=[2]
             )
             # self.parameters = dict(
             #     transition_history_size=[10000],

@@ -53,7 +53,7 @@ def setup_training(self):
         mode=MODE
     )
 
-    self.tbm = TensorBoardManager(self.hpm, 'runs/300/')
+    self.tbm = TensorBoardManager(self.hpm, 'runs/300_master/')
 
     self.closest_to_center = 7
     # init_plot_data(self)
